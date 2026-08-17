@@ -1,0 +1,16 @@
+LA BOMBA - AUDIO ASSETS
+
+bomb_ticking.wav
+Title: Ticking clock.
+Author: bart
+Source: https://opengameart.org/content/ticking-clock
+License: Creative Commons Zero (CC0)
+
+bomb_explosion.wav
+Title: Mechanical Explosion
+Author: Spring Spring
+Source: https://opengameart.org/content/mechanical-explosion
+License: Creative Commons Zero (CC0)
+
+Both works may be copied, modified and distributed, including commercially,
+without attribution. Credits are included here as a courtesy.
