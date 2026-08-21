@@ -1,7 +1,10 @@
+import 'package:confetti/confetti.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:styled_widget/styled_widget.dart';
 import 'audio_feedback.dart';
 import 'game_controller.dart';
 import 'game_models.dart';
@@ -27,13 +30,15 @@ Future<void> main() async {
   runApp(const TruthOrDareApp());
 }
 
-const ink = Color(0xFF190B2C);
-const plum = Color(0xFF32134F);
-const purple = Color(0xFF7547E8);
-const coral = Color(0xFFFF5449);
-const gold = Color(0xFFFFBE42);
-const mist = Color(0xFFF8F5FF);
+const ink = Color(0xFF1C102B);
+const plum = Color(0xFF2F1A42);
+const purple = Color(0xFF7659E6);
+const coral = Color(0xFFFF6B67);
+const gold = Color(0xFFF2B85B);
+const mist = Color(0xFFFBF8FF);
 const snappy = Cubic(0.23, 1, 0.32, 1);
+const truthCardColors = [Color(0xFFD94F55), Color(0xFFEE6B70)];
+const dareCardColors = [Color(0xFF6750C8), Color(0xFF826CE0)];
 
 class TruthOrDareApp extends StatefulWidget {
   const TruthOrDareApp({super.key});
@@ -99,6 +104,50 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
     await NotificationService.instance.scheduleReminders();
   }
 
+  Future<void> _handleBack(BuildContext dialogContext) async {
+    if (controller.page != AppPage.playing) {
+      controller.back();
+      return;
+    }
+    final leaveGame = await showDialog<bool>(
+      context: dialogContext,
+      builder: (alertContext) => AlertDialog(
+        backgroundColor: Theme.of(alertContext).colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        icon: Icon(
+          Icons.warning_amber_rounded,
+          color: Theme.of(alertContext).colorScheme.secondary,
+          size: 34,
+        ),
+        title: const Text(
+          '¿Salir de la partida?',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        content: Text(
+          'Perderás el progreso de la partida actual.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Theme.of(alertContext).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(alertContext, false),
+            child: const Text('SEGUIR JUGANDO'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(alertContext, true),
+            child: const Text('SALIR'),
+          ),
+        ],
+      ),
+    );
+    if (leaveGame == true && mounted) controller.back();
+  }
+
   @override
   void dispose() {
     controller.removeListener(_refresh);
@@ -126,34 +175,34 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
         useMaterial3: true,
         scaffoldBackgroundColor: ink,
         colorScheme: const ColorScheme.dark(
-          primary: purple,
+          primary: Color(0xFF9B87F5),
           onPrimary: Colors.white,
-          secondary: coral,
-          onSecondary: ink,
+          secondary: Color(0xFFE45B60),
+          onSecondary: Colors.white,
           tertiary: gold,
           onTertiary: ink,
-          surface: plum,
-          onSurface: mist,
-          onSurfaceVariant: Color(0xFFD5C8E2),
-          outline: Color(0xFF665277),
+          surface: Color(0xFF211A27),
+          onSurface: Color(0xFFF7F2F8),
+          onSurfaceVariant: Color(0xFFBDB4C1),
+          outline: Color(0xFF443B49),
         ),
         fontFamily: 'sans',
       ),
       theme: ThemeData(
         brightness: Brightness.light,
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF8F3FB),
+        scaffoldBackgroundColor: const Color(0xFFF9F6FC),
         colorScheme: const ColorScheme.light(
-          primary: Color(0xFF6940D8),
+          primary: Color(0xFF6750C8),
           onPrimary: Colors.white,
-          secondary: Color(0xFFE6453E),
-          onSecondary: Color(0xFF190B2C),
-          tertiary: Color(0xFF8B5A00),
+          secondary: Color(0xFFD94F55),
+          onSecondary: Colors.white,
+          tertiary: Color(0xFF946200),
           onTertiary: Colors.white,
           surface: Color(0xFFFFFBFF),
-          onSurface: Color(0xFF21142B),
-          onSurfaceVariant: Color(0xFF65566E),
-          outline: Color(0xFFCEC0D7),
+          onSurface: Color(0xFF24182D),
+          onSurfaceVariant: Color(0xFF685C70),
+          outline: Color(0xFFD4CADB),
         ),
         fontFamily: 'sans',
       ),
@@ -168,60 +217,62 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
           child: child!,
         );
       },
-      home: PopScope(
-        canPop: controller.page == AppPage.welcome,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) controller.back();
-        },
-        child: AppBackground(
-          child: AnimatedSwitcher(
-            duration: _duration(context, 180),
-            reverseDuration: _duration(context, 100),
-            switchInCurve: snappy,
-            switchOutCurve: Curves.easeOut,
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: ScaleTransition(
-                scale: Tween(begin: .97, end: 1.0).animate(animation),
-                child: child,
+      home: Builder(
+        builder: (homeContext) => PopScope(
+          canPop: controller.page == AppPage.welcome,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _handleBack(homeContext);
+          },
+          child: AppBackground(
+            child: AnimatedSwitcher(
+              duration: _duration(context, 180),
+              reverseDuration: _duration(context, 100),
+              switchInCurve: snappy,
+              switchOutCurve: Curves.easeOut,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale: Tween(begin: .97, end: 1.0).animate(animation),
+                  child: child,
+                ),
               ),
+              child: switch (controller.page) {
+                AppPage.consent => ConsentScreen(
+                  key: const ValueKey('consent'),
+                  controller: controller,
+                ),
+                AppPage.welcome => WelcomeScreen(
+                  key: const ValueKey('welcome'),
+                  controller: controller,
+                  lightMode: lightMode,
+                  onToggleTheme: _toggleTheme,
+                ),
+                AppPage.players => PlayersScreen(
+                  key: const ValueKey('players'),
+                  controller: controller,
+                ),
+                AppPage.modeSetup => ModeSetupScreen(
+                  key: const ValueKey('modeSetup'),
+                  controller: controller,
+                ),
+                AppPage.intensitySetup => IntensitySetupScreen(
+                  key: const ValueKey('intensitySetup'),
+                  controller: controller,
+                ),
+                AppPage.playing => GameScreen(
+                  key: const ValueKey('playing'),
+                  controller: controller,
+                ),
+                AppPage.summary => SummaryScreen(
+                  key: const ValueKey('summary'),
+                  controller: controller,
+                ),
+                AppPage.settings => SettingsScreen(
+                  key: const ValueKey('settings'),
+                  controller: controller,
+                ),
+              },
             ),
-            child: switch (controller.page) {
-              AppPage.consent => ConsentScreen(
-                key: const ValueKey('consent'),
-                controller: controller,
-              ),
-              AppPage.welcome => WelcomeScreen(
-                key: const ValueKey('welcome'),
-                controller: controller,
-                lightMode: lightMode,
-                onToggleTheme: _toggleTheme,
-              ),
-              AppPage.players => PlayersScreen(
-                key: const ValueKey('players'),
-                controller: controller,
-              ),
-              AppPage.modeSetup => ModeSetupScreen(
-                key: const ValueKey('modeSetup'),
-                controller: controller,
-              ),
-              AppPage.intensitySetup => IntensitySetupScreen(
-                key: const ValueKey('intensitySetup'),
-                controller: controller,
-              ),
-              AppPage.playing => GameScreen(
-                key: const ValueKey('playing'),
-                controller: controller,
-              ),
-              AppPage.summary => SummaryScreen(
-                key: const ValueKey('summary'),
-                controller: controller,
-              ),
-              AppPage.settings => SettingsScreen(
-                key: const ValueKey('settings'),
-                controller: controller,
-              ),
-            },
           ),
         ),
       ),
@@ -248,7 +299,7 @@ class AppBackground extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: light
               ? const [Color(0xFFFFFBFF), Color(0xFFF8F3FB), Color(0xFFF1E9F6)]
-              : const [Color(0xFF2B1045), ink, Color(0xFF10071C)],
+              : const [Color(0xFF18131D), Color(0xFF141017), Color(0xFF100D12)],
         ),
       ),
       child: Material(
@@ -276,8 +327,14 @@ Color _softOutline(BuildContext context, {double darkAlpha = .12}) =>
     : Colors.white.withValues(alpha: darkAlpha);
 
 Color _accentColor(BuildContext context, Color color) {
-  if (!_isLight(context)) return color;
   final scheme = Theme.of(context).colorScheme;
+  if (!_isLight(context)) {
+    if (color == coral) return scheme.secondary;
+    if (color == purple) return scheme.primary;
+    if (color == gold) return scheme.onSurfaceVariant;
+    if (color == mist) return scheme.onSurface;
+    return color;
+  }
   if (color == coral) return scheme.secondary;
   if (color == purple) return scheme.primary;
   if (color == gold) return scheme.tertiary;
@@ -454,55 +511,100 @@ class WelcomeScreen extends StatelessWidget {
             ],
           ),
           const Spacer(flex: 2),
-          Center(
-            child: SizedBox(
-              width: 196,
-              height: 196,
-              child: Image.asset(
-                'assets/branding/verdad-o-reto-logo-transparent.png',
-                key: const ValueKey('brand-logo'),
-                fit: BoxFit.contain,
-                alignment: Alignment.center,
+          _welcomeEntrance(
+            context,
+            delay: 20,
+            child: Center(
+              child: SizedBox(
+                width: 196,
+                height: 196,
+                child: Image.asset(
+                  'assets/branding/verdad-o-reto-logo-transparent.png',
+                  key: const ValueKey('brand-logo'),
+                  fit: BoxFit.contain,
+                  alignment: Alignment.center,
+                ),
               ),
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            'Verdad o Reto',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 34,
-              height: 1.05,
-              fontWeight: FontWeight.w900,
-              letterSpacing: .4,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Las mejores historias empiezan\ncon una pregunta.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: _secondaryText(context),
-              fontSize: 16,
-              height: 1.4,
+          _welcomeEntrance(
+            context,
+            delay: 70,
+            child: Column(
+              children: [
+                Text(
+                  'Verdad o Reto',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 34,
+                    height: 1.05,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .4,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Las mejores historias empiezan\ncon una pregunta.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _secondaryText(context),
+                    fontSize: 16,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
           const Spacer(flex: 3),
-          PrimaryButton(
-            label: 'EMPEZAR A JUGAR',
-            icon: Icons.play_arrow_rounded,
-            onTap: controller.showPlayers,
-          ),
-          const SizedBox(height: 14),
-          Text(
-            '2–12 jugadores  ·  Sin conexión',
-            style: TextStyle(color: _secondaryText(context), fontSize: 13),
+          _welcomeEntrance(
+            context,
+            delay: 120,
+            child: Column(
+              children: [
+                PrimaryButton(
+                  label: 'EMPEZAR A JUGAR',
+                  icon: Icons.play_arrow_rounded,
+                  foregroundColor: ink,
+                  onTap: controller.showPlayers,
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  '2–12 jugadores  ·  Sin conexión',
+                  style: TextStyle(
+                    color: _secondaryText(context),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+Widget _welcomeEntrance(
+  BuildContext context, {
+  required Widget child,
+  required int delay,
+}) {
+  if (MediaQuery.disableAnimationsOf(context)) return child;
+  return Animate(
+    delay: Duration(milliseconds: delay),
+    effects: const [
+      FadeEffect(duration: Duration(milliseconds: 220)),
+      ScaleEffect(
+        begin: Offset(.97, .97),
+        end: Offset(1, 1),
+        duration: Duration(milliseconds: 220),
+        curve: snappy,
+      ),
+    ],
+    child: child,
+  );
 }
 
 class PlayersScreen extends StatefulWidget {
@@ -532,25 +634,10 @@ class _PlayersScreenState extends State<PlayersScreen> {
   }
 
   Future<void> editPlayer(String player) async {
-    final editor = TextEditingController(text: player);
     final value = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Editar jugador'),
-        content: TextField(controller: editor, autofocus: true, maxLength: 18),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, editor.text),
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
+      builder: (context) => _EditPlayerDialog(initialValue: player),
     );
-    editor.dispose();
     if (value != null) widget.controller.editPlayer(player, value);
   }
 
@@ -626,6 +713,37 @@ class _PlayersScreenState extends State<PlayersScreen> {
           child: ReorderableListView.builder(
             itemCount: widget.controller.players.length,
             onReorderItem: widget.controller.reorderPlayer,
+            proxyDecorator: (child, index, animation) {
+              final lift = CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              );
+              return AnimatedBuilder(
+                animation: lift,
+                child: child,
+                builder: (_, child) => Transform.scale(
+                  scale: MediaQuery.disableAnimationsOf(context)
+                      ? 1
+                      : 1 + (.018 * lift.value),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: [
+                          BoxShadow(
+                            color: ink.withValues(alpha: .18),
+                            blurRadius: 24,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      child: child,
+                    ),
+                  ),
+                ),
+              );
+            },
             itemBuilder: (_, index) {
               final player = widget.controller.players[index];
               final active = !widget.controller.inactivePlayers.contains(
@@ -661,7 +779,10 @@ class _PlayersScreenState extends State<PlayersScreen> {
                     Expanded(
                       child: Text(
                         player,
-                        style: const TextStyle(
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
                         ),
@@ -735,6 +856,52 @@ class _PlayersScreenState extends State<PlayersScreen> {
         const SizedBox(height: 18),
       ],
     ),
+  );
+}
+
+class _EditPlayerDialog extends StatefulWidget {
+  const _EditPlayerDialog({required this.initialValue});
+
+  final String initialValue;
+
+  @override
+  State<_EditPlayerDialog> createState() => _EditPlayerDialogState();
+}
+
+class _EditPlayerDialogState extends State<_EditPlayerDialog> {
+  late final TextEditingController editor;
+
+  @override
+  void initState() {
+    super.initState();
+    editor = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    editor.dispose();
+    super.dispose();
+  }
+
+  void save() => Navigator.pop(context, editor.text);
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Editar jugador'),
+    content: TextField(
+      controller: editor,
+      autofocus: true,
+      maxLength: 18,
+      textInputAction: TextInputAction.done,
+      onSubmitted: (_) => save(),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancelar'),
+      ),
+      FilledButton(onPressed: save, child: const Text('Guardar')),
+    ],
   );
 }
 
@@ -1177,22 +1344,11 @@ class GameScreen extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          'ES EL TURNO DE',
-                          textAlign: TextAlign.center,
-                          style: _sectionStyle(context),
+                        PlayerTurnIdentity(
+                          player: controller.currentPlayer,
+                          turn: controller.turn,
                         ),
-                        Text(
-                          controller.currentPlayer,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: _accentColor(context, gold),
-                            fontSize: 38,
-                            height: 1.2,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 28),
                         if (card == null)
                           ChooseCardType(
                             onTruth: () =>
@@ -1202,56 +1358,17 @@ class GameScreen extends StatelessWidget {
                         else
                           ChallengeCard(card: card),
                         const SizedBox(height: 18),
-                        SizedBox(
-                          height: 124,
-                          child: card == null
-                              ? Align(
-                                  alignment: Alignment.topCenter,
-                                  child: SecondaryButton(
-                                    label: 'SALTAR JUGADOR',
-                                    color: _secondaryText(context),
-                                    icon: Icons.skip_next_rounded,
-                                    onTap: controller.skipPlayer,
-                                  ),
-                                )
-                              : Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: SecondaryButton(
-                                            label: 'OTRA',
-                                            color: gold,
-                                            icon: Icons.refresh_rounded,
-                                            onTap: controller.anotherCard,
-                                          ),
-                                        ),
-                                        if (controller.previousCard !=
-                                            null) ...[
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: SecondaryButton(
-                                              label: 'ANTERIOR',
-                                              color: _secondaryText(context),
-                                              icon: Icons.undo_rounded,
-                                              onTap: controller
-                                                  .restorePreviousCard,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    PrimaryButton(
-                                      label: controller.reachedRoundLimit
-                                          ? 'VER RESUMEN'
-                                          : 'SIGUIENTE TURNO',
-                                      icon: Icons.arrow_forward_rounded,
-                                      onTap: controller.nextTurn,
-                                    ),
-                                  ],
-                                ),
-                        ),
+                        if (card != null)
+                          SizedBox(
+                            height: 60,
+                            child: PrimaryButton(
+                              label: controller.reachedRoundLimit
+                                  ? 'VER RESUMEN'
+                                  : 'SIGUIENTE TURNO',
+                              icon: Icons.arrow_forward_rounded,
+                              onTap: controller.nextTurn,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -1294,6 +1411,29 @@ class GameScreen extends StatelessWidget {
                 ),
               ),
             ),
+          if (!controller.paused)
+            Positioned(
+              right: 22,
+              bottom: 18,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (card != null) ...[
+                    FloatingGameAction(
+                      tooltip: 'Otra tarjeta',
+                      icon: Icons.refresh_rounded,
+                      onTap: controller.anotherCard,
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  FloatingGameAction(
+                    tooltip: 'Saltar jugador',
+                    icon: Icons.skip_next_rounded,
+                    onTap: controller.skipPlayer,
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -1310,46 +1450,70 @@ class ChooseCardType extends StatelessWidget {
   final VoidCallback onDare;
 
   @override
-  Widget build(BuildContext context) => Container(
-    constraints: const BoxConstraints(minHeight: 220),
-    padding: const EdgeInsets.all(22),
-    decoration: BoxDecoration(
-      color: _softSurface(context),
-      borderRadius: BorderRadius.circular(30),
-      border: Border.all(color: _softOutline(context)),
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+  Widget build(BuildContext context) {
+    Widget choices = Row(
       children: [
-        const Text(
-          '¿Qué eliges?',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+        Expanded(
+          child: GameChoiceButton(
+            label: 'VERDAD',
+            subtitle: 'Una pregunta',
+            icon: Icons.chat_bubble_rounded,
+            colors: truthCardColors,
+            onTap: onTruth,
+          ),
         ),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: SecondaryButton(
-                label: 'VERDAD',
-                color: coral,
-                icon: Icons.chat_bubble_outline_rounded,
-                onTap: onTruth,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: SecondaryButton(
-                label: 'RETO',
-                color: purple,
-                icon: Icons.bolt_rounded,
-                onTap: onDare,
-              ),
-            ),
-          ],
+        const SizedBox(width: 12),
+        Expanded(
+          child: GameChoiceButton(
+            label: 'RETO',
+            subtitle: 'Atrévete',
+            icon: Icons.bolt_rounded,
+            colors: dareCardColors,
+            onTap: onDare,
+          ),
         ),
       ],
-    ),
-  );
+    );
+    if (!MediaQuery.disableAnimationsOf(context)) {
+      choices = Animate(
+        effects: const [
+          FadeEffect(duration: Duration(milliseconds: 180)),
+          ScaleEffect(
+            begin: Offset(.97, .97),
+            end: Offset(1, 1),
+            duration: Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+          ),
+        ],
+        child: choices,
+      );
+    }
+    return Container(
+      constraints: const BoxConstraints(minHeight: 244),
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+      decoration: BoxDecoration(
+        color: _softSurface(context),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: _softOutline(context)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'ELIGE UNA OPCIÓN',
+            style: TextStyle(
+              color: _secondaryText(context),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          choices,
+        ],
+      ),
+    );
+  }
 }
 
 class ChallengeCard extends StatelessWidget {
@@ -1358,21 +1522,20 @@ class ChallengeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = card.type == CardType.verdad ? coral : purple;
+    final colors = card.type == CardType.verdad
+        ? truthCardColors
+        : dareCardColors;
     return Container(
       constraints: const BoxConstraints(minHeight: 220),
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
       decoration: BoxDecoration(
-        color: color,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colors,
+        ),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: .35),
-            blurRadius: 30,
-            offset: const Offset(0, 16),
-          ),
-        ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1385,7 +1548,7 @@ class ChallengeCard extends StatelessWidget {
               fontSize: 13,
               fontWeight: FontWeight.w900,
               letterSpacing: 3,
-              color: ink.withValues(alpha: .64),
+              color: Colors.white.withValues(alpha: .78),
             ),
           ),
           const SizedBox(height: 17),
@@ -1393,7 +1556,7 @@ class ChallengeCard extends StatelessWidget {
             card.text,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: ink,
+              color: Colors.white,
               fontSize: 22,
               height: 1.3,
               fontWeight: FontWeight.w700,
@@ -1405,69 +1568,264 @@ class ChallengeCard extends StatelessWidget {
   }
 }
 
-class SummaryScreen extends StatelessWidget {
+class PlayerTurnIdentity extends StatelessWidget {
+  const PlayerTurnIdentity({
+    required this.player,
+    required this.turn,
+    super.key,
+  });
+
+  final String player;
+  final int turn;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        _faceForTurn(player, turn),
+        semanticsLabel: 'Carita del jugador',
+        style: const TextStyle(fontSize: 44, height: 1),
+      ),
+      const SizedBox(height: 9),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Text(
+          player,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 32,
+            height: 1.05,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -.7,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+class FloatingGameAction extends StatelessWidget {
+  const FloatingGameAction({
+    required this.tooltip,
+    required this.icon,
+    required this.onTap,
+    super.key,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: Pressable(
+      onTap: onTap,
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Icon(
+          icon,
+          size: 26,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+      ),
+    ),
+  );
+}
+
+String _faceForTurn(String player, int turn) {
+  const faces = ['😄', '😎', '🤩', '😂', '😜', '🥳', '🤓', '🤠', '🤪', '😊'];
+  final seed = Object.hash(player, turn) & 0x7fffffff;
+  return faces[seed % faces.length];
+}
+
+class GameChoiceButton extends StatelessWidget {
+  const GameChoiceButton({
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.colors,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final String subtitle;
+  final IconData icon;
+  final List<Color> colors;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final content =
+        Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(icon, color: Colors.white, size: 30),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .5,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: .78),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+            .padding(horizontal: 14, vertical: 15)
+            .decorated(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: colors,
+              ),
+              borderRadius: BorderRadius.circular(24),
+            )
+            .height(116);
+    return Pressable(onTap: onTap, child: content);
+  }
+}
+
+class SummaryScreen extends StatefulWidget {
   const SummaryScreen({required this.controller, super.key});
   final GameController controller;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(28),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text('🏆', style: TextStyle(fontSize: 72)),
-        const SizedBox(height: 18),
-        const Text(
-          '¡Qué partida!',
-          style: TextStyle(fontSize: 38, fontWeight: FontWeight.w900),
-        ),
-        Text(
-          'Habéis completado ${controller.truthsCompleted + controller.daresCompleted} turnos',
-          style: TextStyle(color: _secondaryText(context), fontSize: 17),
-        ),
-        const SizedBox(height: 24),
-        Row(
+  State<SummaryScreen> createState() => _SummaryScreenState();
+}
+
+class _SummaryScreenState extends State<SummaryScreen> {
+  late final ConfettiController confettiController;
+  bool celebrationStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    confettiController = ConfettiController(
+      duration: const Duration(milliseconds: 1800),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!celebrationStarted) {
+      celebrationStarted = true;
+      if (!MediaQuery.disableAnimationsOf(context)) confettiController.play();
+    }
+  }
+
+  @override
+  void dispose() {
+    confettiController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    alignment: Alignment.topCenter,
+    children: [
+      Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Expanded(
-              child: StatCard(
-                value: '${controller.truthsCompleted}',
-                label: 'Verdades',
-                color: coral,
-              ),
+            const Text('🏆', style: TextStyle(fontSize: 72)),
+            const SizedBox(height: 18),
+            const Text(
+              '¡Qué partida!',
+              style: TextStyle(fontSize: 38, fontWeight: FontWeight.w900),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: StatCard(
-                value: '${controller.daresCompleted}',
-                label: 'Retos',
-                color: purple,
-              ),
+            Text(
+              'Habéis completado ${widget.controller.truthsCompleted + widget.controller.daresCompleted} turnos',
+              style: TextStyle(color: _secondaryText(context), fontSize: 17),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: StatCard(
-                value: '${controller.skippedCards}',
-                label: 'Cambios',
-                color: gold,
-              ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: StatCard(
+                    value: '${widget.controller.truthsCompleted}',
+                    label: 'Verdades',
+                    color: coral,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: StatCard(
+                    value: '${widget.controller.daresCompleted}',
+                    label: 'Retos',
+                    color: purple,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: StatCard(
+                    value: '${widget.controller.skippedCards}',
+                    label: 'Cambios',
+                    color: gold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 34),
+            PrimaryButton(
+              label: 'JUGAR OTRA VEZ',
+              icon: Icons.refresh_rounded,
+              onTap: widget.controller.playAgain,
+            ),
+            const SizedBox(height: 12),
+            SecondaryButton(
+              label: 'VOLVER AL INICIO',
+              color: Theme.of(context).colorScheme.primary,
+              icon: Icons.home_rounded,
+              onTap: widget.controller.goHome,
             ),
           ],
         ),
-        const SizedBox(height: 34),
-        PrimaryButton(
-          label: 'JUGAR OTRA VEZ',
-          icon: Icons.refresh_rounded,
-          onTap: controller.playAgain,
+      ),
+      IgnorePointer(
+        child: ConfettiWidget(
+          confettiController: confettiController,
+          blastDirectionality: BlastDirectionality.explosive,
+          emissionFrequency: .035,
+          numberOfParticles: 16,
+          minBlastForce: 7,
+          maxBlastForce: 16,
+          gravity: .22,
+          minimumSize: const Size(5, 5),
+          maximumSize: const Size(11, 11),
+          colors: const [coral, purple, gold, Colors.white],
+          pauseEmissionOnLowFrameRate: true,
         ),
-        const SizedBox(height: 12),
-        SecondaryButton(
-          label: 'VOLVER AL INICIO',
-          color: Theme.of(context).colorScheme.primary,
-          icon: Icons.home_rounded,
-          onTap: controller.goHome,
-        ),
-      ],
-    ),
+      ),
+    ],
   );
 }
 
@@ -1698,49 +2056,56 @@ class PrimaryButton extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.sound = AppSound.confirm,
+    this.foregroundColor,
     super.key,
   });
   final String label;
   final IconData icon;
   final VoidCallback? onTap;
   final AppSound sound;
+  final Color? foregroundColor;
 
   @override
-  Widget build(BuildContext context) => Pressable(
-    onTap: onTap,
-    sound: sound,
-    child: AnimatedOpacity(
-      duration: _duration(context, 160),
-      opacity: onTap == null ? .35 : 1,
-      child: Container(
-        height: 60,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: coral,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: ink),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: ink,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: .6,
+  Widget build(BuildContext context) {
+    final background = Theme.of(context).colorScheme.secondary;
+    final foreground =
+        foregroundColor ?? Theme.of(context).colorScheme.onSecondary;
+    return Pressable(
+      onTap: onTap,
+      sound: sound,
+      child: AnimatedOpacity(
+        duration: _duration(context, 160),
+        opacity: onTap == null ? .35 : 1,
+        child: Container(
+          height: 60,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: foreground),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: foreground,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .6,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class SecondaryButton extends StatelessWidget {
@@ -1769,8 +2134,9 @@ class SecondaryButton extends StatelessWidget {
         width: double.infinity,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          color: effectiveColor.withValues(alpha: _isLight(context) ? .035 : 0),
-          border: Border.all(color: effectiveColor.withValues(alpha: .72)),
+          color: effectiveColor.withValues(
+            alpha: _isLight(context) ? .12 : .16,
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,

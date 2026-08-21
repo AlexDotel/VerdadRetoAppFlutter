@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -69,6 +70,7 @@ class GameController extends ChangeNotifier {
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     consentAccepted = prefs.getBool('consent') ?? false;
+    if (consentAccepted) unawaited(AdService.instance.initialize());
     players = prefs.getStringList('players') ?? players;
     inactivePlayers = (prefs.getStringList('inactivePlayers') ?? []).toSet();
     _history = (prefs.getStringList('history') ?? []).toSet();
@@ -99,6 +101,7 @@ class GameController extends ChangeNotifier {
   void acceptConsent() {
     consentAccepted = true;
     page = AppPage.welcome;
+    unawaited(AdService.instance.initialize());
     _save();
     notifyListeners();
   }
@@ -226,6 +229,7 @@ class GameController extends ChangeNotifier {
   }
 
   void startGame() {
+    AdService.instance.startGameSession();
     _deck = _buildFilteredDeck();
     turn = 0;
     truthsCompleted = 0;
@@ -339,16 +343,11 @@ class GameController extends ChangeNotifier {
       previousCard = null;
       final available = activePlayers;
       if (available.length < 2) return;
-      final completedRound = turn > 0 && turn % available.length == 0;
-      final completedRoundNumber = completedRound
-          ? turn ~/ available.length
-          : 0;
-      if (completedRound &&
-          await AdService.instance.canShowAfterRound(completedRoundNumber)) {
+      if (await AdService.instance.canShowAfterTurn(turn, available.length)) {
         adBreakVisible = true;
         notifyListeners();
         await Future<void>.delayed(const Duration(milliseconds: 700));
-        await AdService.instance.showRoundBreak();
+        await AdService.instance.showTurnBreak();
         adBreakVisible = false;
       }
       if (randomizeTurns && _lastPlayerIndex >= 0) {
