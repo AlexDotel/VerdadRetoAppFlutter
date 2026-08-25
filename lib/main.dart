@@ -1,11 +1,13 @@
 import 'package:confetti/confetti.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:styled_widget/styled_widget.dart';
 import 'audio_feedback.dart';
+import 'app_language.dart';
 import 'game_controller.dart';
 import 'game_models.dart';
 import 'notification_service.dart';
@@ -50,6 +52,8 @@ class TruthOrDareApp extends StatefulWidget {
 class _TruthOrDareAppState extends State<TruthOrDareApp> {
   final controller = GameController();
   bool lightMode = false;
+  String language = 'system';
+  static const _platform = MethodChannel('verdadoreto/ui_audio');
   static const _sendTestNotification = bool.fromEnvironment(
     'SEND_TEST_NOTIFICATION',
   );
@@ -70,8 +74,27 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
   Future<void> _loadTheme() async {
     final preferences = await SharedPreferences.getInstance();
     if (!mounted) return;
-    setState(() => lightMode = preferences.getBool('light_mode') ?? false);
+    setState(() {
+      lightMode = preferences.getBool('light_mode') ?? false;
+      language = preferences.getString('language') ?? 'system';
+    });
     _applySystemBars();
+  }
+
+  Future<void> _setLanguage(String value) async {
+    setState(() => language = value);
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString('language', value);
+  }
+
+  Future<void> _openStore(
+    String packageName, {
+    bool launchFirst = false,
+  }) async {
+    await _platform.invokeMethod<void>(
+      launchFirst ? 'openAppOrStore' : 'openStore',
+      {'package': packageName},
+    );
   }
 
   Future<void> _toggleTheme() async {
@@ -120,13 +143,13 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
           color: Theme.of(alertContext).colorScheme.secondary,
           size: 34,
         ),
-        title: const Text(
-          '¿Salir de la partida?',
+        title: Text(
+          dialogContext.tr('¿Salir de la partida?'),
           textAlign: TextAlign.center,
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
         content: Text(
-          'Perderás el progreso de la partida actual.',
+          dialogContext.tr('Perderás el progreso de la partida actual.'),
           textAlign: TextAlign.center,
           style: TextStyle(
             color: Theme.of(alertContext).colorScheme.onSurfaceVariant,
@@ -136,11 +159,11 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(alertContext, false),
-            child: const Text('SEGUIR JUGANDO'),
+            child: Text(dialogContext.tr('SEGUIR JUGANDO')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(alertContext, true),
-            child: const Text('SALIR'),
+            child: Text(dialogContext.tr('SALIR')),
           ),
         ],
       ),
@@ -166,9 +189,25 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
     debugPaintPointersEnabled = false;
     debugRepaintRainbowEnabled = false;
     debugRepaintTextRainbowEnabled = false;
+    final selectedLocale = switch (language) {
+      'es' => const Locale('es'),
+      'en' => const Locale('en'),
+      _ => null,
+    };
+    controller.languageCode =
+        selectedLocale?.languageCode ?? deviceLanguageCode();
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Verdad o Reto',
+      onGenerateTitle: (context) => context.tr('Verdad o Reto'),
+      locale: selectedLocale,
+      supportedLocales: supportedAppLocales,
+      localeResolutionCallback: (deviceLocale, _) =>
+          resolveAppLocale(deviceLocale),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       themeMode: lightMode ? ThemeMode.light : ThemeMode.dark,
       darkTheme: ThemeData(
         brightness: Brightness.dark,
@@ -270,6 +309,13 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
                 AppPage.settings => SettingsScreen(
                   key: const ValueKey('settings'),
                   controller: controller,
+                  language: language,
+                  onLanguageChanged: _setLanguage,
+                  onRateApp: () => _openStore('nuviapps.co.verdadoreto'),
+                  onOpenBomb: () =>
+                      _openStore('nuviapps.co.labomba', launchFirst: true),
+                  onOpenImpostor: () =>
+                      _openStore('nuviapptest.co.impostor', launchFirst: true),
                 ),
               },
             ),
@@ -372,14 +418,14 @@ class _ConsentScreenState extends State<ConsentScreen> {
     children: [
       Icon(Icons.shield_outlined, color: _accentColor(context, gold), size: 58),
       const SizedBox(height: 20),
-      const Text(
-        'Antes de jugar',
+      Text(
+        context.tr('Antes de jugar'),
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900),
       ),
       const SizedBox(height: 10),
       Text(
-        'La diversión siempre termina donde empieza un límite.',
+        context.tr('La diversión siempre termina donde empieza un límite.'),
         textAlign: TextAlign.center,
         style: TextStyle(color: _secondaryText(context), fontSize: 16),
       ),
@@ -397,13 +443,15 @@ class _ConsentScreenState extends State<ConsentScreen> {
       CheckboxListTile(
         value: adult,
         onChanged: (value) => setState(() => adult = value ?? false),
-        title: const Text('Todas las personas tienen 18 años o más'),
+        title: Text(context.tr('Todas las personas tienen 18 años o más')),
         controlAffinity: ListTileControlAffinity.leading,
       ),
       CheckboxListTile(
         value: consent,
         onChanged: (value) => setState(() => consent = value ?? false),
-        title: const Text('Entendemos que el consentimiento puede retirarse'),
+        title: Text(
+          context.tr('Entendemos que el consentimiento puede retirarse'),
+        ),
         controlAffinity: ListTileControlAffinity.leading,
       ),
     ],
@@ -438,9 +486,12 @@ class InfoCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
               Text(
-                subtitle,
+                context.tr(title),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              Text(
+                context.tr(subtitle),
                 style: TextStyle(color: _secondaryText(context), fontSize: 13),
               ),
             ],
@@ -489,8 +540,8 @@ class WelcomeScreen extends StatelessWidget {
                   onToggleTheme();
                 },
                 tooltip: lightMode
-                    ? 'Activar modo oscuro'
-                    : 'Activar modo claro',
+                    ? context.tr('Activar modo oscuro')
+                    : context.tr('Activar modo claro'),
                 icon: Icon(
                   lightMode
                       ? Icons.dark_mode_rounded
@@ -505,7 +556,7 @@ class WelcomeScreen extends StatelessWidget {
                   AppAudio.play(AppSound.tap);
                   controller.showSettings();
                 },
-                tooltip: 'Configuración',
+                tooltip: context.tr('Configuración'),
                 icon: const Icon(Icons.settings_rounded, size: 20),
               ),
             ],
@@ -534,7 +585,7 @@ class WelcomeScreen extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  'Verdad o Reto',
+                  context.tr('Verdad o Reto'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,
@@ -546,7 +597,9 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Las mejores historias empiezan\ncon una pregunta.',
+                  context.tr(
+                    'Las mejores historias empiezan\ncon una pregunta.',
+                  ),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: _secondaryText(context),
@@ -571,7 +624,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  '2–12 jugadores  ·  Sin conexión',
+                  context.tr('2–12 jugadores  ·  Sin conexión'),
                   style: TextStyle(
                     color: _secondaryText(context),
                     fontSize: 13,
@@ -648,8 +701,8 @@ class _PlayersScreenState extends State<PlayersScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppHeader(
-          title: '¿Quién juega?',
-          subtitle: 'Añade al menos 2 personas',
+          title: context.tr('¿Quién juega?'),
+          subtitle: context.tr('Añade al menos 2 personas'),
           onBack: widget.controller.back,
         ),
         Row(
@@ -663,7 +716,7 @@ class _PlayersScreenState extends State<PlayersScreen> {
                 onSubmitted: (_) => addPlayer(),
                 decoration: InputDecoration(
                   counterText: '',
-                  hintText: 'Nombre del jugador',
+                  hintText: context.tr('Nombre del jugador'),
                   filled: true,
                   fillColor: _softSurface(context),
                   border: OutlineInputBorder(
@@ -705,7 +758,7 @@ class _PlayersScreenState extends State<PlayersScreen> {
         ),
         const SizedBox(height: 20),
         Text(
-          'JUGADORES  ${widget.controller.players.length}/12',
+          '${context.tr('JUGADORES')}  ${widget.controller.players.length}/12',
           style: _sectionStyle(context),
         ),
         const SizedBox(height: 10),
@@ -802,7 +855,7 @@ class _PlayersScreenState extends State<PlayersScreen> {
                         AppAudio.play(AppSound.tap);
                         editPlayer(player);
                       },
-                      tooltip: 'Editar $player',
+                      tooltip: '${context.tr('Editar jugador')}: $player',
                       icon: Icon(
                         Icons.edit_outlined,
                         color: _secondaryText(context),
@@ -813,7 +866,8 @@ class _PlayersScreenState extends State<PlayersScreen> {
                         AppAudio.play(AppSound.back);
                         widget.controller.removePlayer(player);
                       },
-                      tooltip: 'Eliminar $player',
+                      tooltip:
+                          '${context.isEnglish ? 'Remove' : 'Eliminar'} $player',
                       icon: Icon(
                         Icons.close_rounded,
                         color: _secondaryText(context),
@@ -839,7 +893,9 @@ class _PlayersScreenState extends State<PlayersScreen> {
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Text(
-              'Necesitas ${2 - widget.controller.activePlayers.length} jugador más activo',
+              context.isEnglish
+                  ? 'You need ${2 - widget.controller.activePlayers.length} more active player'
+                  : 'Necesitas ${2 - widget.controller.activePlayers.length} jugador más activo',
               style: TextStyle(color: _accentColor(context, gold)),
             ),
           ),
@@ -887,7 +943,7 @@ class _EditPlayerDialogState extends State<_EditPlayerDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Editar jugador'),
+    title: Text(context.tr('Editar jugador')),
     content: TextField(
       controller: editor,
       autofocus: true,
@@ -898,9 +954,9 @@ class _EditPlayerDialogState extends State<_EditPlayerDialog> {
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('Cancelar'),
+        child: Text(context.tr('Cancelar')),
       ),
-      FilledButton(onPressed: save, child: const Text('Guardar')),
+      FilledButton(onPressed: save, child: Text(context.tr('Guardar'))),
     ],
   );
 }
@@ -925,11 +981,11 @@ class ModeSetupScreen extends StatelessWidget {
     ),
     children: [
       AppHeader(
-        title: 'Modo de juego',
-        subtitle: 'Elige el ambiente de la partida',
+        title: context.tr('Modo de juego'),
+        subtitle: context.tr('Elige el ambiente de la partida'),
         onBack: controller.back,
       ),
-      Text('MODO DE JUEGO', style: _sectionStyle(context)),
+      Text(context.tr('MODO DE JUEGO'), style: _sectionStyle(context)),
       const SizedBox(height: 6),
       ...GameMode.values.map(
         (mode) => SelectCard(
@@ -956,12 +1012,13 @@ class IntensitySetupScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
           children: [
             AppHeader(
-              title: 'Intensidad',
-              subtitle: 'Modo ${controller.mode.title}',
+              title: context.tr('Intensidad'),
+              subtitle:
+                  '${context.isEnglish ? 'Mode' : 'Modo'} ${context.tr(controller.mode.title)}',
               onBack: controller.back,
             ),
             const SizedBox(height: 16),
-            Text('INTENSIDAD', style: _sectionStyle(context)),
+            Text(context.tr('INTENSIDAD'), style: _sectionStyle(context)),
             const SizedBox(height: 6),
             ...Intensity.values.map(
               (intensity) => SelectCard(
@@ -996,14 +1053,14 @@ class IntensitySetupScreen extends StatelessWidget {
                 },
                 activeTrackColor: _accentColor(context, purple),
                 activeThumbColor: Colors.white,
-                title: const Text(
-                  'Turnos aleatorios',
+                title: Text(
+                  context.tr('Turnos aleatorios'),
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 subtitle: Text(
                   controller.randomizeTurns
-                      ? 'El siguiente jugador se elegirá al azar'
-                      : 'Los jugadores participarán en orden',
+                      ? context.tr('El siguiente jugador se elegirá al azar')
+                      : context.tr('Los jugadores participarán en orden'),
                   style: TextStyle(
                     color: _secondaryText(context),
                     fontSize: 13,
@@ -1022,12 +1079,12 @@ class IntensitySetupScreen extends StatelessWidget {
             const SizedBox(height: 14),
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
-              title: const Text(
-                'Límites de contenido',
+              title: Text(
+                context.tr('Límites de contenido'),
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
               subtitle: Text(
-                'Desactiva lo que el grupo prefiera evitar',
+                context.tr('Desactiva lo que el grupo prefiera evitar'),
                 style: TextStyle(color: _secondaryText(context), fontSize: 13),
               ),
               children: [
@@ -1166,9 +1223,12 @@ class SettingSwitch extends StatelessWidget {
           icon,
           color: value ? activeColor : _secondaryText(context),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        title: Text(
+          context.tr(title),
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
         subtitle: Text(
-          subtitle,
+          context.tr(subtitle),
           style: TextStyle(color: _secondaryText(context), fontSize: 13),
         ),
       ),
@@ -1197,7 +1257,7 @@ class ContentFilterTile extends StatelessWidget {
       AppAudio.play(AppSound.toggle);
       onChanged(newValue);
     },
-    title: Text(label),
+    title: Text(context.tr(label)),
   );
 }
 
@@ -1247,14 +1307,14 @@ class SelectCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      context.tr(title),
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 17,
                       ),
                     ),
                     Text(
-                      subtitle,
+                      context.tr(subtitle),
                       style: TextStyle(
                         color: _secondaryText(context),
                         fontSize: 13,
@@ -1309,7 +1369,7 @@ class GameScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'RONDA ${controller.turn}${controller.maxRounds > 0 ? ' / ${controller.maxRounds}' : ''}',
+                        '${context.isEnglish ? 'ROUND' : 'RONDA'} ${controller.turn}${controller.maxRounds > 0 ? ' / ${controller.maxRounds}' : ''}',
                         style: _sectionStyle(context),
                       ),
                     ),
@@ -1318,7 +1378,9 @@ class GameScreen extends StatelessWidget {
                         AppAudio.play(AppSound.toggle);
                         controller.togglePause();
                       },
-                      tooltip: 'Pausar',
+                      tooltip: context.tr(
+                        controller.paused ? 'Reanudar' : 'Pausar',
+                      ),
                       icon: Icon(
                         Icons.pause_rounded,
                         color: _secondaryText(context),
@@ -1330,7 +1392,7 @@ class GameScreen extends StatelessWidget {
                         controller.finishGame();
                       },
                       child: Text(
-                        'Terminar',
+                        context.tr('Terminar'),
                         style: TextStyle(color: _secondaryText(context)),
                       ),
                     ),
@@ -1392,8 +1454,8 @@ class GameScreen extends StatelessWidget {
                           color: gold,
                         ),
                         const SizedBox(height: 16),
-                        const Text(
-                          'Partida en pausa',
+                        Text(
+                          context.tr('Partida en pausa'),
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w900,
@@ -1420,14 +1482,14 @@ class GameScreen extends StatelessWidget {
                 children: [
                   if (card != null) ...[
                     FloatingGameAction(
-                      tooltip: 'Otra tarjeta',
+                      tooltip: context.tr('Otra tarjeta'),
                       icon: Icons.refresh_rounded,
                       onTap: controller.anotherCard,
                     ),
                     const SizedBox(width: 10),
                   ],
                   FloatingGameAction(
-                    tooltip: 'Saltar jugador',
+                    tooltip: context.tr('Saltar jugador'),
                     icon: Icons.skip_next_rounded,
                     onTap: controller.skipPlayer,
                   ),
@@ -1455,8 +1517,8 @@ class ChooseCardType extends StatelessWidget {
       children: [
         Expanded(
           child: GameChoiceButton(
-            label: 'VERDAD',
-            subtitle: 'Una pregunta',
+            label: context.tr('VERDAD'),
+            subtitle: context.tr('Una pregunta'),
             icon: Icons.chat_bubble_rounded,
             colors: truthCardColors,
             onTap: onTruth,
@@ -1465,8 +1527,8 @@ class ChooseCardType extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: GameChoiceButton(
-            label: 'RETO',
-            subtitle: 'Atrévete',
+            label: context.tr('RETO'),
+            subtitle: context.tr('Atrévete'),
             icon: Icons.bolt_rounded,
             colors: dareCardColors,
             onTap: onDare,
@@ -1500,7 +1562,7 @@ class ChooseCardType extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            'ELIGE UNA OPCIÓN',
+            context.tr('ELIGE UNA OPCIÓN'),
             style: TextStyle(
               color: _secondaryText(context),
               fontSize: 11,
@@ -1543,7 +1605,7 @@ class ChallengeCard extends StatelessWidget {
           Text(card.type.emoji, style: const TextStyle(fontSize: 38)),
           const SizedBox(height: 10),
           Text(
-            card.type.title,
+            context.tr(card.type.title),
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w900,
@@ -1584,7 +1646,7 @@ class PlayerTurnIdentity extends StatelessWidget {
     children: [
       Text(
         _faceForTurn(player, turn),
-        semanticsLabel: 'Carita del jugador',
+        semanticsLabel: context.tr('Carita del jugador'),
         style: const TextStyle(fontSize: 44, height: 1),
       ),
       const SizedBox(height: 9),
@@ -1622,7 +1684,7 @@ class FloatingGameAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: tooltip,
+    message: context.tr(tooltip),
     child: Pressable(
       onTap: onTap,
       child: Container(
@@ -1758,12 +1820,14 @@ class _SummaryScreenState extends State<SummaryScreen> {
           children: [
             const Text('🏆', style: TextStyle(fontSize: 72)),
             const SizedBox(height: 18),
-            const Text(
-              '¡Qué partida!',
+            Text(
+              context.tr('¡Qué partida!'),
               style: TextStyle(fontSize: 38, fontWeight: FontWeight.w900),
             ),
             Text(
-              'Habéis completado ${widget.controller.truthsCompleted + widget.controller.daresCompleted} turnos',
+              context.isEnglish
+                  ? 'You completed ${widget.controller.truthsCompleted + widget.controller.daresCompleted} turns'
+                  : 'Habéis completado ${widget.controller.truthsCompleted + widget.controller.daresCompleted} turnos',
               style: TextStyle(color: _secondaryText(context), fontSize: 17),
             ),
             const SizedBox(height: 24),
@@ -1863,7 +1927,7 @@ class StatCard extends StatelessWidget {
             ),
           ),
           Text(
-            label,
+            context.tr(label),
             style: TextStyle(color: _secondaryText(context), fontSize: 12),
           ),
         ],
@@ -1873,19 +1937,91 @@ class StatCard extends StatelessWidget {
 }
 
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({required this.controller, super.key});
+  const SettingsScreen({
+    required this.controller,
+    required this.language,
+    required this.onLanguageChanged,
+    required this.onRateApp,
+    required this.onOpenBomb,
+    required this.onOpenImpostor,
+    super.key,
+  });
   final GameController controller;
+  final String language;
+  final ValueChanged<String> onLanguageChanged;
+  final VoidCallback onRateApp;
+  final VoidCallback onOpenBomb;
+  final VoidCallback onOpenImpostor;
 
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
     children: [
       AppHeader(
-        title: 'Configuración',
-        subtitle: 'Adapta el juego a tu grupo',
+        title: context.tr('Configuración'),
+        subtitle: context.tr('Adapta el juego a tu grupo'),
         onBack: controller.closeSettings,
       ),
-      Text('EXPERIENCIA', style: _sectionStyle(context)),
+      Text(context.tr('IDIOMA'), style: _sectionStyle(context)),
+      const SizedBox(height: 8),
+      Material(
+        color: _softSurface(context),
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  Icons.language_rounded,
+                  color: _accentColor(context, purple),
+                ),
+                title: Text(
+                  context.tr('Idioma'),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text(
+                  context.tr('Idioma de los textos de la aplicación'),
+                  style: TextStyle(color: _secondaryText(context)),
+                ),
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: language,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: _softSurface(context, darkAlpha: .08),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: 'system',
+                    child: Text(context.tr('Automático (dispositivo)')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'es',
+                    child: Text(context.tr('Español')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'en',
+                    child: Text(context.tr('Inglés')),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) onLanguageChanged(value);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      const SizedBox(height: 24),
+      Text(context.tr('EXPERIENCIA'), style: _sectionStyle(context)),
       const SizedBox(height: 8),
       ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1893,9 +2029,9 @@ class SettingsScreen extends StatelessWidget {
           Icons.notification_add_outlined,
           color: _accentColor(context, gold),
         ),
-        title: const Text('Probar notificación'),
+        title: Text(context.tr('Probar notificación')),
         subtitle: Text(
-          'Envía una notificación local ahora',
+          context.tr('Envía una notificación local ahora'),
           style: TextStyle(color: _secondaryText(context)),
         ),
         trailing: Icon(
@@ -1904,16 +2040,14 @@ class SettingsScreen extends StatelessWidget {
         ),
         onTap: () async {
           final messenger = ScaffoldMessenger.of(context);
+          final sentMessage = context.tr('Notificación de prueba enviada');
+          final permissionMessage = context.tr(
+            'Activa el permiso de notificaciones para probarla',
+          );
           final sent = await NotificationService.instance
               .showTestNotification();
           messenger.showSnackBar(
-            SnackBar(
-              content: Text(
-                sent
-                    ? 'Notificación de prueba enviada'
-                    : 'Activa el permiso de notificaciones para probarla',
-              ),
-            ),
+            SnackBar(content: Text(sent ? sentMessage : permissionMessage)),
           );
         },
       ),
@@ -1942,7 +2076,7 @@ class SettingsScreen extends StatelessWidget {
         onChanged: (v) => controller.setPreference('animations', v),
       ),
       const SizedBox(height: 22),
-      Text('TAMAÑO DEL TEXTO', style: _sectionStyle(context)),
+      Text(context.tr('TAMAÑO DEL TEXTO'), style: _sectionStyle(context)),
       Slider(
         value: controller.textScale,
         min: .9,
@@ -1952,7 +2086,7 @@ class SettingsScreen extends StatelessWidget {
         onChanged: controller.setTextScale,
       ),
       const SizedBox(height: 12),
-      Text('DURACIÓN DE LA PARTIDA', style: _sectionStyle(context)),
+      Text(context.tr('DURACIÓN DE LA PARTIDA'), style: _sectionStyle(context)),
       const SizedBox(height: 8),
       Wrap(
         spacing: 8,
@@ -1960,7 +2094,13 @@ class SettingsScreen extends StatelessWidget {
           for (final rounds in [10, 20, 30, 0])
             ChoiceChip(
               selected: controller.maxRounds == rounds,
-              label: Text(rounds == 0 ? 'Sin límite' : '$rounds turnos'),
+              label: Text(
+                rounds == 0
+                    ? context.tr('Sin límite')
+                    : context.isEnglish
+                    ? '$rounds turns'
+                    : '$rounds turnos',
+              ),
               onSelected: (_) {
                 AppAudio.play(AppSound.select);
                 controller.setMaxRounds(rounds);
@@ -1969,7 +2109,7 @@ class SettingsScreen extends StatelessWidget {
         ],
       ),
       const SizedBox(height: 24),
-      Text('PRIVACIDAD E HISTORIAL', style: _sectionStyle(context)),
+      Text(context.tr('PRIVACIDAD E HISTORIAL'), style: _sectionStyle(context)),
       const SizedBox(height: 8),
       const InfoCard(
         icon: Icons.offline_bolt_outlined,
@@ -1983,9 +2123,13 @@ class SettingsScreen extends StatelessWidget {
           Icons.history_rounded,
           color: _accentColor(context, purple),
         ),
-        title: Text('${controller.historyCount} tarjetas vistas'),
+        title: Text(
+          context.isEnglish
+              ? '${controller.historyCount} viewed cards'
+              : '${controller.historyCount} tarjetas vistas',
+        ),
         subtitle: Text(
-          'Se priorizan tarjetas que aún no han aparecido',
+          context.tr('Se priorizan tarjetas que aún no han aparecido'),
           style: TextStyle(color: _secondaryText(context)),
         ),
         trailing: TextButton(
@@ -1995,10 +2139,83 @@ class SettingsScreen extends StatelessWidget {
                   AppAudio.play(AppSound.back);
                   controller.resetHistory();
                 },
-          child: const Text('Reiniciar'),
+          child: Text(context.tr('Reiniciar')),
         ),
       ),
+      const SizedBox(height: 24),
+      Text(context.tr('VALORACIÓN'), style: _sectionStyle(context)),
+      const SizedBox(height: 8),
+      StoreRecommendationTile(
+        icon: Icons.star_rounded,
+        title: context.tr('Valorar la aplicación'),
+        subtitle: context.tr('Comparte tu opinión en Google Play'),
+        onTap: onRateApp,
+      ),
+      const SizedBox(height: 24),
+      Text(context.tr('MÁS JUEGOS'), style: _sectionStyle(context)),
+      const SizedBox(height: 8),
+      StoreRecommendationTile(
+        emoji: '💣',
+        title: context.tr('Jugar a La Bomba'),
+        subtitle: context.tr('Responde antes de que explote'),
+        onTap: onOpenBomb,
+      ),
+      const SizedBox(height: 10),
+      StoreRecommendationTile(
+        emoji: '🕵️',
+        title: context.tr('Jugar a Impostor'),
+        subtitle: context.tr('Descubre quién está fingiendo'),
+        onTap: onOpenImpostor,
+      ),
     ],
+  );
+}
+
+class StoreRecommendationTile extends StatelessWidget {
+  const StoreRecommendationTile({
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.icon,
+    this.emoji,
+    super.key,
+  });
+
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final IconData? icon;
+  final String? emoji;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: _softSurface(context),
+    borderRadius: BorderRadius.circular(18),
+    clipBehavior: Clip.antiAlias,
+    child: ListTile(
+      minTileHeight: 68,
+      onTap: onTap,
+      leading: SizedBox.square(
+        dimension: 42,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: _accentColor(context, purple).withValues(alpha: .13),
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: Center(
+            child: emoji != null
+                ? Text(emoji!, style: const TextStyle(fontSize: 23))
+                : Icon(icon, color: _accentColor(context, gold)),
+          ),
+        ),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(color: _secondaryText(context)),
+      ),
+      trailing: Icon(Icons.open_in_new_rounded, color: _secondaryText(context)),
+    ),
   );
 }
 
@@ -2023,7 +2240,7 @@ class AppHeader extends StatelessWidget {
             AppAudio.play(AppSound.back);
             onBack();
           },
-          tooltip: 'Volver',
+          tooltip: context.tr('Volver'),
           icon: const Icon(Icons.arrow_back_rounded),
         ),
         const SizedBox(width: 6),
@@ -2032,14 +2249,14 @@ class AppHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                title,
+                context.tr(title),
                 style: const TextStyle(
                   fontSize: 25,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               Text(
-                subtitle,
+                context.tr(subtitle),
                 style: TextStyle(color: _secondaryText(context), fontSize: 14),
               ),
             ],
@@ -2090,7 +2307,7 @@ class PrimaryButton extends StatelessWidget {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  label,
+                  context.tr(label),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

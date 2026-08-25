@@ -3,6 +3,8 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'app_language.dart';
+
 class NotificationService {
   NotificationService._();
   static final instance = NotificationService._();
@@ -10,11 +12,15 @@ class NotificationService {
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
-  static const _details = NotificationDetails(
+  NotificationDetails get _details => NotificationDetails(
     android: AndroidNotificationDetails(
       'weekend_game_reminders',
-      'Recordatorios para jugar',
-      channelDescription: 'Invitaciones para volver a jugar Verdad o Reto',
+      deviceLanguageCode() == 'es'
+          ? 'Recordatorios para jugar'
+          : 'Game reminders',
+      channelDescription: deviceLanguageCode() == 'es'
+          ? 'Invitaciones para volver a jugar Verdad o Reto'
+          : 'Invitations to play Truth or Dare again',
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
     ),
@@ -52,8 +58,10 @@ class NotificationService {
     if (!allowed) return false;
     await _plugin.show(
       id: 900,
-      title: 'Verdad o Reto',
-      body: '¿Listos para jugar? Esta es una notificación de prueba.',
+      title: deviceLanguageCode() == 'es' ? 'Verdad o Reto' : 'Truth or Dare',
+      body: deviceLanguageCode() == 'es'
+          ? '¿Listos para jugar? Esta es una notificación de prueba.'
+          : 'Ready to play? This is a test notification.',
       notificationDetails: _details,
     );
     return true;
@@ -75,16 +83,22 @@ class NotificationService {
       (110, DateTime.sunday, 20),
       (111, DateTime.sunday, 22),
     ];
-    const bodies = [
-      '¿Una verdad o un reto? Reúne al grupo y que empiece la partida.',
-      'La noche está para buenas historias. ¿Jugamos?',
-      'Tu próxima anécdota puede empezar con una tarjeta.',
-    ];
+    final bodies = deviceLanguageCode() == 'es'
+        ? const [
+            '¿Una verdad o un reto? Reúne al grupo y que empiece la partida.',
+            'La noche está para buenas historias. ¿Jugamos?',
+            'Tu próxima anécdota puede empezar con una tarjeta.',
+          ]
+        : const [
+            'Truth or dare? Gather the group and let the game begin.',
+            'Tonight is made for great stories. Shall we play?',
+            'Your next great story could begin with a card.',
+          ];
     for (var index = 0; index < schedules.length; index++) {
       final (id, weekday, hour) = schedules[index];
       await _plugin.zonedSchedule(
         id: id,
-        title: 'Verdad o Reto',
+        title: deviceLanguageCode() == 'es' ? 'Verdad o Reto' : 'Truth or Dare',
         body: bodies[index % bodies.length],
         scheduledDate: _nextWeekdayTime(weekday, hour),
         notificationDetails: _details,

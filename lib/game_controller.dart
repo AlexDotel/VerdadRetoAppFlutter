@@ -61,6 +61,7 @@ class GameController extends ChangeNotifier {
   Set<String> _history = {};
   AppPage _pageBeforeSettings = AppPage.welcome;
   bool _advancingTurn = false;
+  String languageCode = 'es';
 
   List<String> get activePlayers =>
       players.where((name) => !inactivePlayers.contains(name)).toList();
@@ -247,48 +248,93 @@ class GameController extends ChangeNotifier {
         : mixIntensities
         ? Intensity.values
         : [intensity];
-    final cards = intensities.expand((value) => buildDeck(mode, value)).where((
-      card,
-    ) {
-      final text = card.text.toLowerCase();
-      if (!contactAllowed && _has(text, ['besa', 'toca', 'abrazo', 'masaje'])) {
-        return false;
-      }
-      if (!adultAllowed &&
-          _has(text, [
-            'sexo',
-            'sexual',
-            'desnud',
-            'folla',
-            'orgasmo',
-            'íntim',
-          ])) {
-        return false;
-      }
-      if (!alcoholAllowed &&
-          _has(text, ['alcohol', 'bebid', 'borrach', 'chupito'])) {
-        return false;
-      }
-      if (!socialAllowed &&
-          _has(text, [
-            'mensaje',
-            'chat',
-            'estado',
-            'publica',
-            'foto de perfil',
-          ])) {
-        return false;
-      }
-      if (!personalAllowed &&
-          _has(text, ['secreto', 'vulnerable', 'mentira', 'confiesa'])) {
-        return false;
-      }
-      if (!publicAllowed &&
-          _has(text, ['en público', 'bar', 'baño', 'coche'])) {
-        return false;
-      }
-      return true;
-    }).toList();
+    final cards = intensities
+        .expand(
+          (value) => buildDeck(mode, value, english: languageCode == 'en'),
+        )
+        .where((card) {
+          final text = card.text.toLowerCase();
+          if (!contactAllowed &&
+              _has(text, [
+                'besa',
+                'toca',
+                'abrazo',
+                'masaje',
+                'kiss',
+                'touch',
+                'hug',
+                'massage',
+              ])) {
+            return false;
+          }
+          if (!adultAllowed &&
+              _has(text, [
+                'sexo',
+                'sexual',
+                'desnud',
+                'folla',
+                'orgasmo',
+                'íntim',
+                'sex',
+                'naked',
+                'orgasm',
+                'intimate',
+              ])) {
+            return false;
+          }
+          if (!alcoholAllowed &&
+              _has(text, [
+                'alcohol',
+                'bebid',
+                'borrach',
+                'chupito',
+                'drink',
+                'drunk',
+                'shot',
+              ])) {
+            return false;
+          }
+          if (!socialAllowed &&
+              _has(text, [
+                'mensaje',
+                'chat',
+                'estado',
+                'publica',
+                'foto de perfil',
+                'message',
+                'chat',
+                'post',
+                'profile picture',
+              ])) {
+            return false;
+          }
+          if (!personalAllowed &&
+              _has(text, [
+                'secreto',
+                'vulnerable',
+                'mentira',
+                'confiesa',
+                'secret',
+                'lie',
+                'confess',
+              ])) {
+            return false;
+          }
+          if (!publicAllowed &&
+              _has(text, [
+                'en público',
+                'bar',
+                'baño',
+                'coche',
+                'in public',
+                'bathroom',
+                'car',
+              ])) {
+            return false;
+          }
+          return true;
+        })
+        .toList();
     return cards..shuffle(_random);
   }
 
