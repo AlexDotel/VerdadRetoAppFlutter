@@ -1,8 +1,11 @@
 package nuviapps.co.verdadoreto
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.SoundPool
+import android.net.Uri
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.MethodChannel
@@ -82,9 +85,43 @@ class MainActivity : FlutterActivity() {
                         soundPool = null
                         result.success(null)
                     }
+                    "openAppOrStore" -> {
+                        val packageName = call.argument<String>("package")
+                        if (packageName == null) {
+                            result.error("missing_package", "Package name is required", null)
+                        } else {
+                            openAppOrStore(packageName)
+                            result.success(null)
+                        }
+                    }
+                    "openStore" -> {
+                        val packageName = call.argument<String>("package")
+                        if (packageName == null) {
+                            result.error("missing_package", "Package name is required", null)
+                        } else {
+                            openStore(packageName)
+                            result.success(null)
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun openAppOrStore(packageName: String) {
+        packageManager.getLaunchIntentForPackage(packageName)?.let {
+            startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return
+        }
+        openStore(packageName)
+    }
+
+    private fun openStore(packageName: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName")))
+        } catch (_: ActivityNotFoundException) {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName")))
+        }
     }
 
     override fun onDestroy() {

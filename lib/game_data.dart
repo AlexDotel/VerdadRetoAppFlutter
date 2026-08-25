@@ -3,20 +3,32 @@ import 'imported_adult_content.dart';
 
 const cardsPerType = 100;
 
-List<GameCard> buildDeck(GameMode mode, Intensity intensity) => [
+List<GameCard> buildDeck(
+  GameMode mode,
+  Intensity intensity, {
+  bool english = false,
+}) => [
   ...contentFor(
     mode,
     intensity,
     CardType.verdad,
+    english: english,
   ).map((text) => GameCard(CardType.verdad, text)),
   ...contentFor(
     mode,
     intensity,
     CardType.reto,
+    english: english,
   ).map((text) => GameCard(CardType.reto, text)),
 ]..shuffle();
 
-List<String> contentFor(GameMode mode, Intensity intensity, CardType type) {
+List<String> contentFor(
+  GameMode mode,
+  Intensity intensity,
+  CardType type, {
+  bool english = false,
+}) {
+  if (english) return _englishContentFor(mode, intensity, type);
   if (mode == GameMode.familia) {
     return type == CardType.verdad ? _familyTruths() : _familyDares();
   }
@@ -30,6 +42,167 @@ List<String> contentFor(GameMode mode, Intensity intensity, CardType type) {
       ? _generatedTruths(mode, intensity)
       : _generatedDares(mode, intensity);
   return <String>{...imported, ...generated}.take(cardsPerType).toList();
+}
+
+List<String> _englishContentFor(
+  GameMode mode,
+  Intensity intensity,
+  CardType type,
+) {
+  if (mode == GameMode.familia) {
+    return type == CardType.verdad
+        ? _familyTruthsEnglish()
+        : _familyDaresEnglish();
+  }
+  return type == CardType.verdad
+      ? _generatedTruthsEnglish(mode, intensity)
+      : _generatedDaresEnglish(mode, intensity);
+}
+
+String _settingEnglish(GameMode mode) => switch (mode) {
+  GameMode.amigos => 'with friends',
+  GameMode.pareja => 'as a couple',
+  GameMode.fiesta => 'at a party',
+  GameMode.familia => 'with family',
+};
+
+String _toneEnglish(Intensity intensity) => switch (intensity) {
+  Intensity.suave => 'in a fun way without making anyone uncomfortable',
+  Intensity.atrevido => 'honestly and with a bold twist',
+  Intensity.extremo => 'with complete honesty while respecting every boundary',
+};
+
+List<String> _generatedTruthsEnglish(GameMode mode, Intensity intensity) {
+  final setting = _settingEnglish(mode);
+  final tone = _toneEnglish(intensity);
+  const openings = [
+    'What has been',
+    'What do you remember as',
+    'How would you describe',
+    'Who would you tell about',
+    'What would you change about',
+    'What did you learn from',
+    'What would you like to repeat about',
+    'What have you never shared about',
+    'What surprised you most about',
+    'What is your honest opinion about',
+  ];
+  const topics = [
+    'your most embarrassing moment',
+    'a first impression you got wrong',
+    'your perfect plan',
+    'an impulsive decision',
+    'the compliment you remember most',
+    'a harmless white lie',
+    'your biggest quirk',
+    'a conversation you still need to have',
+    'the most fun risk you have taken',
+    'something that makes you feel vulnerable',
+  ];
+  return [
+    for (final opening in openings)
+      for (final topic in topics) '$opening $topic $setting, $tone?',
+  ];
+}
+
+List<String> _generatedDaresEnglish(GameMode mode, Intensity intensity) {
+  final setting = _settingEnglish(mode);
+  final seconds = switch (intensity) {
+    Intensity.suave => 15,
+    Intensity.atrevido => 25,
+    Intensity.extremo => 40,
+  };
+  const actions = [
+    'Improvise a story',
+    'Do an impression',
+    'Act out a scene',
+    'Make up a dance',
+    'Give someone a compliment',
+    'Sing a made-up chorus',
+    'Defend a ridiculous opinion',
+    'Tell a story using gestures',
+    'Make a dramatic declaration',
+    'Play a character chosen by the group',
+  ];
+  const twists = [
+    'without using the letter A',
+    'with a TV host voice',
+    'without laughing',
+    'including three words chosen by the others',
+    'as if it were the end of a movie',
+    'while maintaining eye contact with someone',
+    'using questions only',
+    'using a nearby object as a prop',
+    'in slow motion',
+    'letting the group choose the subject',
+  ];
+  return [
+    for (final action in actions)
+      for (final twist in twists)
+        '$action $setting for $seconds seconds, $twist.',
+  ];
+}
+
+List<String> _familyTruthsEnglish() {
+  const topics = [
+    'a holiday',
+    'a birthday',
+    'a special meal',
+    'a day at school',
+    'an afternoon of games',
+    'a celebration',
+    'an unexpected visit',
+    'a family tradition',
+    'a day trip',
+    'a moment at home',
+  ];
+  const questions = [
+    'What is your funniest memory connected to {topic}?',
+    'What did you enjoy most about {topic}?',
+    'Who made you laugh most during {topic}, and why?',
+    'What would you repeat exactly the same from {topic}?',
+    'What small detail do you remember best from {topic}?',
+    'What did you learn thanks to {topic}?',
+    'How would you improve {topic} if it happened tomorrow?',
+    'Who would you invite to share {topic}?',
+    'Which song would you choose to remember {topic}?',
+    'What movie title would you give to {topic}?',
+  ];
+  return [
+    for (final question in questions)
+      for (final topic in topics) question.replaceFirst('{topic}', topic),
+  ];
+}
+
+List<String> _familyDaresEnglish() {
+  const actions = [
+    'Imitate an animal',
+    'Make up a dance',
+    'Tell a three-sentence story',
+    'Hum a well-known song',
+    'Act out a profession',
+    'Draw something in the air with your finger',
+    'Strike a superhero pose',
+    'Act out an emotion without speaking',
+    'Say a made-up tongue twister',
+    'Create a funny advert for a nearby object',
+  ];
+  const twists = [
+    'while the group tries to guess it',
+    'using a robot voice',
+    'as if you were moving in slow motion',
+    'without using the letter A',
+    'including another player’s name',
+    'with your hands behind your back',
+    'as if you were a TV host',
+    'without laughing for 20 seconds',
+    'letting the group choose the subject',
+    'and finish with a bow',
+  ];
+  return [
+    for (final action in actions)
+      for (final twist in twists) '$action $twist.',
+  ];
 }
 
 String _categoryKey(GameMode mode, Intensity intensity) =>

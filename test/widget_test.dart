@@ -1,4 +1,4 @@
-import 'dart:ui' show Offset, Size;
+import 'dart:ui' show Locale, Offset, Size;
 
 import 'package:flutter/material.dart' show AlertDialog, Icons, TextField;
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +8,19 @@ import 'package:verdad_o_reto/game_models.dart';
 import 'package:verdad_o_reto/main.dart';
 
 void main() {
+  setUp(() {
+    TestWidgetsFlutterBinding.ensureInitialized()
+        .platformDispatcher
+        .localeTestValue = const Locale(
+      'es',
+    );
+  });
+
+  tearDown(() {
+    TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher
+        .clearLocaleTestValue();
+  });
+
   test('el modo Familia contiene 100 verdades y 100 retos únicos', () {
     final truths = contentFor(
       GameMode.familia,
@@ -22,9 +35,31 @@ void main() {
     expect(dares.toSet(), hasLength(cardsPerType));
   });
 
+  test('la baraja inglesa contiene 100 textos únicos por tipo', () {
+    final truths = contentFor(
+      GameMode.amigos,
+      Intensity.suave,
+      CardType.verdad,
+      english: true,
+    );
+    final dares = contentFor(
+      GameMode.amigos,
+      Intensity.suave,
+      CardType.reto,
+      english: true,
+    );
+
+    expect(truths, hasLength(cardsPerType));
+    expect(dares, hasLength(cardsPerType));
+    expect(truths.toSet(), hasLength(cardsPerType));
+    expect(dares.toSet(), hasLength(cardsPerType));
+    expect(truths.any((text) => text.contains('¿')), isFalse);
+  });
+
   testWidgets('muestra la pantalla inicial de Verdad o Reto', (tester) async {
     SharedPreferences.setMockInitialValues({
       'consent': true,
+      'language': 'es',
       'notification_permission_prompted': true,
     });
 
@@ -34,11 +69,34 @@ void main() {
     expect(find.text('EMPEZAR A JUGAR'), findsOneWidget);
   });
 
+  testWidgets('muestra interfaz y ajustes en inglés', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'consent': true,
+      'language': 'en',
+      'notification_permission_prompted': true,
+    });
+
+    await tester.pumpWidget(const TruthOrDareApp());
+    await tester.pumpAndSettle();
+
+    expect(find.text('START PLAYING'), findsOneWidget);
+    await tester.tap(find.byTooltip('Settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('Language'), findsWidgets);
+    await tester.scrollUntilVisible(find.text('Rate the app'), 300);
+    expect(find.text('Rate the app'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Play The Bomb'), 300);
+    expect(find.text('Play The Bomb'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Play Impostor'), 300);
+    expect(find.text('Play Impostor'), findsOneWidget);
+  });
+
   testWidgets(
     'permite editar un jugador sin destruir el campo antes de tiempo',
     (tester) async {
       SharedPreferences.setMockInitialValues({
         'consent': true,
+        'language': 'es',
         'notification_permission_prompted': true,
       });
 
@@ -47,7 +105,7 @@ void main() {
       await tester.tap(find.text('EMPEZAR A JUGAR'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Editar Alex'));
+      await tester.tap(find.byTooltip('Editar jugador: Alex'));
       await tester.pumpAndSettle();
       final editor = find.descendant(
         of: find.byType(AlertDialog),
@@ -67,6 +125,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({
       'consent': true,
+      'language': 'es',
       'notification_permission_prompted': true,
     });
 
@@ -85,6 +144,7 @@ void main() {
   testWidgets('el flujo completo es legible en modo claro', (tester) async {
     SharedPreferences.setMockInitialValues({
       'consent': true,
+      'language': 'es',
       'light_mode': true,
       'maxRounds': 1,
       'notification_permission_prompted': true,
@@ -123,6 +183,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({
       'consent': true,
+      'language': 'es',
       'notification_permission_prompted': true,
     });
     await tester.binding.setSurfaceSize(const Size(393, 852));
@@ -149,6 +210,7 @@ void main() {
   testWidgets('confirma antes de abandonar una partida activa', (tester) async {
     SharedPreferences.setMockInitialValues({
       'consent': true,
+      'language': 'es',
       'notification_permission_prompted': true,
     });
     await tester.binding.setSurfaceSize(const Size(393, 852));
