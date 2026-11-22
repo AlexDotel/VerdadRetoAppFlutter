@@ -7,7 +7,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:styled_widget/styled_widget.dart';
 import 'audio_feedback.dart';
 import 'app_language.dart';
 import 'feature_sheets.dart';
@@ -3004,7 +3003,6 @@ class SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = _accentColor(context, color);
     return Pressable(
       onTap: onTap,
       sound: sound,

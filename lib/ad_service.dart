@@ -9,7 +9,7 @@ class AdService {
 
   static const appKey = '0596564f2ebf4266d6944678836a0c5b24a7baa89909bd1b';
   static const placement = 'default';
-  static const testing = true;
+  static const testing = kDebugMode;
   static const minimumInterval = Duration(minutes: 2);
 
   bool _initializing = false;
