@@ -175,6 +175,58 @@ void main() {
     }
   });
 
+  test('detectCardTimerSeconds detecta tiempos en español e inglés', () {
+    expect(detectCardTimerSeconds('Haz un baile durante 20 segundos.'), 20);
+    expect(detectCardTimerSeconds('Hold eye contact for 15 seconds.'), 15);
+    expect(detectCardTimerSeconds('Hazme un masaje de 1 minuto.'), 60);
+    expect(detectCardTimerSeconds('¿Cuál es tu comida favorita?'), isNull);
+  });
+
+  test('tarjetas personalizadas: 3 gratis y luego cuestan 30 Chispas', () async {
+    SharedPreferences.setMockInitialValues({'consent': true, 'sparks': 40});
+    final controller = GameController();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.nextCustomCardIsFree, isTrue);
+    expect(controller.addCustomCard(CardType.verdad, 'Pregunta propia 1'), isTrue);
+    expect(controller.addCustomCard(CardType.verdad, 'Pregunta propia 2'), isTrue);
+    expect(controller.addCustomCard(CardType.reto, 'Reto propio 3'), isTrue);
+    // 3 gratis consumidas + logro Guionista (+35 Chispas => 75 Chispas)
+    expect(controller.nextCustomCardIsFree, isFalse);
+    expect(controller.sparks, 75);
+
+    // La 4ª tarjeta cuesta 30 Chispas
+    expect(controller.addCustomCard(CardType.reto, 'Reto propio 4'), isTrue);
+    expect(controller.sparks, 45);
+    expect(controller.customCards, hasLength(4));
+  });
+
+  test('desbloqueo de mazos con Chispas, favoritos, presets y premios por jugador', () async {
+    SharedPreferences.setMockInitialValues({'consent': true, 'sparks': 100});
+    final controller = GameController();
+    await Future<void>.delayed(Duration.zero);
+
+    // Desbloqueo de mazo
+    expect(controller.unlockPackWithSparks('midnight_confessions'), isTrue);
+    expect(controller.sparks, 20);
+    expect(controller.unlockedPacks.contains('midnight_confessions'), isTrue);
+
+    // Presets de jugadores
+    expect(controller.savePlayerPreset('Viernes'), isTrue);
+    controller.addPlayer('Lucía');
+    controller.applyPlayerPreset('Viernes');
+    expect(controller.players, ['Alex', 'Sam']);
+
+    // Favoritos y premios en partida
+    controller.startGame();
+    controller.chooseCard(CardType.reto);
+    final card = controller.currentCard!;
+    controller.toggleFavorite(card);
+    expect(controller.isFavorite(card), isTrue);
+    await controller.nextTurn();
+    expect(controller.playerAwards.any((a) => a.title == 'Más valiente'), isTrue);
+  });
+
   testWidgets('muestra la pantalla inicial de Verdad o Reto', (tester) async {
     SharedPreferences.setMockInitialValues({
       'consent': true,

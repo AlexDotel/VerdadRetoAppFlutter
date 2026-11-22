@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:styled_widget/styled_widget.dart';
 import 'audio_feedback.dart';
 import 'app_language.dart';
+import 'feature_sheets.dart';
 import 'game_controller.dart';
 import 'game_models.dart';
 import 'notification_service.dart';
@@ -637,8 +638,44 @@ class WelcomeScreen extends StatelessWidget {
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              Pressable(
+                onTap: () => showRewardsAndPacksSheet(context, controller),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _softSurface(context, darkAlpha: .06),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _softOutline(context)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '⚡ ${controller.sparks}',
+                        style: TextStyle(
+                          color: _accentColor(context, purple),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        context.tr(controller.rankTitle),
+                        style: TextStyle(
+                          color: _secondaryText(context),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(),
               IconButton(
                 style: controlStyle,
                 onPressed: () {
@@ -738,6 +775,16 @@ class WelcomeScreen extends StatelessWidget {
                   icon: Icons.play_arrow_rounded,
                   onTap: controller.showPlayers,
                 ),
+                if (controller.hasSavedSession &&
+                    controller.activePlayers.length >= 2) ...[
+                  const SizedBox(height: 10),
+                  SecondaryButton(
+                    label: 'PARTIDA RÁPIDA',
+                    color: Theme.of(context).colorScheme.primary,
+                    icon: Icons.bolt_rounded,
+                    onTap: controller.startQuickGame,
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Text(
                   context.tr('2–12 jugadores  ·  Sin conexión'),
@@ -812,6 +859,18 @@ class _PlayersScreenState extends State<PlayersScreen> {
     if (value != null) widget.controller.editPlayer(player, value);
   }
 
+  Future<void> savePreset() async {
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => const _EditPlayerDialog(
+        initialValue: '',
+        titleKey: 'Guardar grupo',
+        hintKey: 'Nombre del grupo',
+      ),
+    );
+    if (value != null) widget.controller.savePlayerPreset(value);
+  }
+
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -874,7 +933,35 @@ class _PlayersScreenState extends State<PlayersScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 20),
+        if (widget.controller.activePlayers.length >= 2 ||
+            widget.controller.playerPresets.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                if (widget.controller.activePlayers.length >= 2)
+                  ActionChip(
+                    avatar: const Icon(Icons.bookmark_add_outlined, size: 16),
+                    label: Text(context.tr('Guardar grupo')),
+                    onPressed: savePreset,
+                  ),
+                for (final name in widget.controller.playerPresets.keys) ...[
+                  const SizedBox(width: 8),
+                  InputChip(
+                    label: Text(name),
+                    onPressed: () {
+                      AppAudio.play(AppSound.select);
+                      widget.controller.applyPlayerPreset(name);
+                    },
+                    onDeleted: () => widget.controller.deletePlayerPreset(name),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
         Text(
           '${context.tr('JUGADORES')}  ${widget.controller.players.length}/12',
           style: _sectionStyle(context),
@@ -1054,9 +1141,15 @@ class _PlayersScreenState extends State<PlayersScreen> {
 }
 
 class _EditPlayerDialog extends StatefulWidget {
-  const _EditPlayerDialog({required this.initialValue});
+  const _EditPlayerDialog({
+    required this.initialValue,
+    this.titleKey = 'Editar jugador',
+    this.hintKey,
+  });
 
   final String initialValue;
+  final String titleKey;
+  final String? hintKey;
 
   @override
   State<_EditPlayerDialog> createState() => _EditPlayerDialogState();
@@ -1081,13 +1174,16 @@ class _EditPlayerDialogState extends State<_EditPlayerDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(context.tr('Editar jugador')),
+    title: Text(context.tr(widget.titleKey)),
     content: TextField(
       controller: editor,
       autofocus: true,
       maxLength: 18,
       textInputAction: TextInputAction.done,
       onSubmitted: (_) => save(),
+      decoration: widget.hintKey == null
+          ? null
+          : InputDecoration(hintText: context.tr(widget.hintKey!)),
     ),
     actions: [
       TextButton(
@@ -1213,6 +1309,86 @@ class IntensitySetupScreen extends StatelessWidget {
                       : _secondaryText(context),
                 ),
               ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Pressable(
+                    onTap: () => showRewardsAndPacksSheet(context, controller),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _softSurface(context),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _softOutline(context)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_outlined,
+                            size: 18,
+                            color: _accentColor(context, purple),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${context.tr('Mazos y logros')} (${controller.activeBonusPacks.length})',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Pressable(
+                    onTap: () => showCustomCardsSheet(context, controller),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _softSurface(context),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _softOutline(context)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.edit_note_rounded,
+                            size: 19,
+                            color: _accentColor(context, coral),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${context.tr('Mis tarjetas')} (${controller.customCards.length})',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 14),
             Container(
@@ -1593,9 +1769,15 @@ class GameScreen extends StatelessWidget {
                             onTruth: () =>
                                 controller.chooseCard(CardType.verdad),
                             onDare: () => controller.chooseCard(CardType.reto),
+                            onRandom: controller.chooseRandomCard,
                           )
                         else
-                          ChallengeCard(card: card),
+                          ChallengeCard(
+                            card: card,
+                            isFavorite: controller.isFavorite(card),
+                            onToggleFavorite: () =>
+                                controller.toggleFavorite(card),
+                          ),
                         const SizedBox(height: 18),
                         if (card != null)
                           SizedBox(
@@ -1641,6 +1823,36 @@ class GameScreen extends StatelessWidget {
                             fontSize: 28,
                             fontWeight: FontWeight.w900,
                           ),
+                        ),
+                        const SizedBox(height: 18),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            FilterChip(
+                              selected: controller.soundEnabled,
+                              avatar: Icon(
+                                controller.soundEnabled
+                                    ? Icons.volume_up_rounded
+                                    : Icons.volume_off_rounded,
+                                size: 17,
+                              ),
+                              label: Text(context.tr('Sonido')),
+                              onSelected: (v) =>
+                                  controller.setPreference('sound', v),
+                            ),
+                            FilterChip(
+                              selected: controller.hapticsEnabled,
+                              avatar: const Icon(
+                                Icons.vibration_rounded,
+                                size: 17,
+                              ),
+                              label: Text(context.tr('Vibración')),
+                              onSelected: (v) =>
+                                  controller.setPreference('haptics', v),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 22),
                         PrimaryButton(
@@ -1693,6 +1905,14 @@ class GameScreen extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (card != null && controller.previousCard != null) ...[
+                    FloatingGameAction(
+                      tooltip: context.tr('Tarjeta anterior'),
+                      icon: Icons.undo_rounded,
+                      onTap: controller.restorePreviousCard,
+                    ),
+                    const SizedBox(width: 10),
+                  ],
                   if (card != null) ...[
                     FloatingGameAction(
                       tooltip: context.tr('Otra tarjeta'),
@@ -1718,10 +1938,12 @@ class ChooseCardType extends StatelessWidget {
   const ChooseCardType({
     required this.onTruth,
     required this.onDare,
+    required this.onRandom,
     super.key,
   });
   final VoidCallback onTruth;
   final VoidCallback onDare;
+  final VoidCallback onRandom;
 
   @override
   Widget build(BuildContext context) {
@@ -1784,6 +2006,34 @@ class ChooseCardType extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           choices,
+          const SizedBox(height: 14),
+          Pressable(
+            onTap: onRandom,
+            sound: AppSound.select,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: _softSurface(context, darkAlpha: .07),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: _softOutline(context)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('🎲', style: TextStyle(fontSize: 14)),
+                  const SizedBox(width: 7),
+                  Text(
+                    context.tr('Al azar'),
+                    style: TextStyle(
+                      color: _secondaryText(context),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1791,18 +2041,26 @@ class ChooseCardType extends StatelessWidget {
 }
 
 class ChallengeCard extends StatelessWidget {
-  const ChallengeCard({required this.card, super.key});
+  const ChallengeCard({
+    required this.card,
+    required this.isFavorite,
+    required this.onToggleFavorite,
+    super.key,
+  });
   final GameCard card;
+  final bool isFavorite;
+  final VoidCallback onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
     final colors = card.type == CardType.verdad
         ? truthCardColors
         : dareCardColors;
+    final timerSeconds = detectCardTimerSeconds(card.text);
     return Container(
       constraints: const BoxConstraints(minHeight: 256),
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 30),
+      padding: const EdgeInsets.fromLTRB(26, 22, 26, 26),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -1821,30 +2079,61 @@ class ChallengeCard extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .16),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(card.type.emoji, style: const TextStyle(fontSize: 15)),
-                const SizedBox(width: 7),
-                Text(
-                  context.tr(card.type.title),
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 2.2,
-                    color: Colors.white,
+          Row(
+            children: [
+              const SizedBox(width: 40),
+              Expanded(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .16),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          card.type.emoji,
+                          style: const TextStyle(fontSize: 15),
+                        ),
+                        const SizedBox(width: 7),
+                        Text(
+                          context.tr(card.type.title),
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 2.2,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+              IconButton(
+                onPressed: () {
+                  AppAudio.play(AppSound.tap);
+                  onToggleFavorite();
+                },
+                tooltip: context.tr(
+                  isFavorite ? 'Quitar de favoritas' : 'Guardar en favoritas',
+                ),
+                icon: Icon(
+                  isFavorite
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: Colors.white.withValues(alpha: isFavorite ? 1 : .78),
+                  size: 22,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 18),
           Text(
             card.text,
             textAlign: TextAlign.center,
@@ -1856,6 +2145,13 @@ class ChallengeCard extends StatelessWidget {
               letterSpacing: -.3,
             ),
           ),
+          if (timerSeconds != null) ...[
+            const SizedBox(height: 18),
+            CardTimerPill(
+              key: ValueKey('timer-${card.text}'),
+              seconds: timerSeconds,
+            ),
+          ],
         ],
       ),
     );
@@ -2059,86 +2355,174 @@ class _SummaryScreenState extends State<SummaryScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Stack(
-    alignment: Alignment.topCenter,
-    children: [
-      Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 88,
-              height: 88,
-              decoration: BoxDecoration(
-                color: _accentColor(context, gold).withValues(alpha: .12),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: _accentColor(context, gold).withValues(alpha: .22),
-                ),
-              ),
-              alignment: Alignment.center,
-              child: const Text('🏆', style: TextStyle(fontSize: 42)),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              context.tr('¡Qué partida!'),
-              style: const TextStyle(
-                fontSize: 34,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -.9,
-              ),
-            ),
-            Text(
-              context.isEnglish
-                  ? 'You completed ${widget.controller.truthsCompleted + widget.controller.daresCompleted} turns'
-                  : 'Habéis completado ${widget.controller.truthsCompleted + widget.controller.daresCompleted} turnos',
-              style: TextStyle(color: _secondaryText(context), fontSize: 17),
-            ),
-            const SizedBox(height: 24),
-            Row(
+  Widget build(BuildContext context) {
+    final c = widget.controller;
+    final awards = c.playerAwards;
+    final newBadges = appAchievements
+        .where((a) => c.newlyUnlockedAchievements.contains(a.id))
+        .toList();
+    return Stack(
+      alignment: Alignment.topCenter,
+      children: [
+        Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: StatCard(
-                    value: '${widget.controller.truthsCompleted}',
-                    label: 'Verdades',
-                    color: coral,
+                Container(
+                  width: 84,
+                  height: 84,
+                  decoration: BoxDecoration(
+                    color: _accentColor(context, gold).withValues(alpha: .12),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _accentColor(context, gold).withValues(alpha: .22),
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text('🏆', style: TextStyle(fontSize: 40)),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  context.tr('¡Qué partida!'),
+                  style: const TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.9,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: StatCard(
-                    value: '${widget.controller.daresCompleted}',
-                    label: 'Retos',
-                    color: purple,
+                Text(
+                  context.isEnglish
+                      ? 'You completed ${c.truthsCompleted + c.daresCompleted} turns'
+                      : 'Habéis completado ${c.truthsCompleted + c.daresCompleted} turnos',
+                  style: TextStyle(
+                    color: _secondaryText(context),
+                    fontSize: 16,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: StatCard(
-                    value: '${widget.controller.skippedCards}',
-                    label: 'Cambios',
-                    color: gold,
+                if (c.sessionSparksEarned > 0) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _accentColor(context, purple).withValues(
+                        alpha: .14,
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '+${c.sessionSparksEarned} ⚡ ${context.tr('Chispas')}',
+                      style: TextStyle(
+                        color: _accentColor(context, purple),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13.5,
+                      ),
+                    ),
                   ),
+                ],
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    Expanded(
+                      child: StatCard(
+                        value: '${c.truthsCompleted}',
+                        label: 'Verdades',
+                        color: coral,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatCard(
+                        value: '${c.daresCompleted}',
+                        label: 'Retos',
+                        color: purple,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatCard(
+                        value: '${c.skippedCards}',
+                        label: 'Cambios',
+                        color: gold,
+                      ),
+                    ),
+                  ],
+                ),
+                if (awards.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  Text(
+                    context.tr('PREMIOS DE LA PARTIDA'),
+                    style: _sectionStyle(context),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      for (final award in awards)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _softSurface(context),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: _softOutline(context)),
+                          ),
+                          child: Text(
+                            '${award.emoji} ${context.tr(award.title)}: ${award.player} (${award.detail})',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+                if (newBadges.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    context.tr('LOGROS DESBLOQUEADOS'),
+                    style: _sectionStyle(context),
+                  ),
+                  const SizedBox(height: 8),
+                  for (final badge in newBadges)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        '${badge.emoji} ${context.tr(badge.title)} (+${badge.rewardSparks} ⚡)',
+                        style: TextStyle(
+                          color: _accentColor(context, gold),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                    ),
+                ],
+                const SizedBox(height: 28),
+                PrimaryButton(
+                  label: 'JUGAR OTRA VEZ',
+                  icon: Icons.refresh_rounded,
+                  onTap: c.playAgain,
+                ),
+                const SizedBox(height: 12),
+                SecondaryButton(
+                  label: 'VOLVER AL INICIO',
+                  color: Theme.of(context).colorScheme.primary,
+                  icon: Icons.home_rounded,
+                  onTap: c.goHome,
                 ),
               ],
             ),
-            const SizedBox(height: 34),
-            PrimaryButton(
-              label: 'JUGAR OTRA VEZ',
-              icon: Icons.refresh_rounded,
-              onTap: widget.controller.playAgain,
-            ),
-            const SizedBox(height: 12),
-            SecondaryButton(
-              label: 'VOLVER AL INICIO',
-              color: Theme.of(context).colorScheme.primary,
-              icon: Icons.home_rounded,
-              onTap: widget.controller.goHome,
-            ),
-          ],
+          ),
         ),
-      ),
       IgnorePointer(
         child: ConfettiWidget(
           confettiController: confettiController,
@@ -2155,7 +2539,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
         ),
       ),
     ],
-  );
+    );
+  }
 }
 
 class StatCard extends StatelessWidget {
@@ -2284,6 +2669,33 @@ class SettingsScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+      const SizedBox(height: 24),
+      Text(context.tr('PROGRESO Y CONTENIDO'), style: _sectionStyle(context)),
+      const SizedBox(height: 8),
+      StoreRecommendationTile(
+        emoji: '⚡',
+        title: '${context.tr('Mazos y logros')}  ·  ${controller.sparks} ⚡',
+        subtitle: context.tr(
+          'Desbloquea mazos con Chispas o vídeos bonificados',
+        ),
+        onTap: () => showRewardsAndPacksSheet(context, controller),
+      ),
+      const SizedBox(height: 10),
+      StoreRecommendationTile(
+        emoji: '✍️',
+        title:
+            '${context.tr('Mis tarjetas')} (${controller.customCards.length})',
+        subtitle: context.tr('Crea verdades y retos propios para tu grupo'),
+        onTap: () => showCustomCardsSheet(context, controller),
+      ),
+      const SizedBox(height: 10),
+      StoreRecommendationTile(
+        emoji: '❤️',
+        title:
+            '${context.tr('Favoritas')} (${controller.favoriteCards.length})',
+        subtitle: context.tr('Tus preguntas y retos guardados'),
+        onTap: () => showFavoritesSheet(context, controller),
       ),
       const SizedBox(height: 24),
       Text(context.tr('EXPERIENCIA'), style: _sectionStyle(context)),
