@@ -9,16 +9,19 @@ class AdService {
 
   static const appKey = '0596564f2ebf4266d6944678836a0c5b24a7baa89909bd1b';
   static const placement = 'default';
-  static const testing = true;
+  static const testing = kDebugMode;
   static const minimumInterval = Duration(minutes: 2);
 
   bool _initializing = false;
   bool _initialized = false;
   bool _showing = false;
+  bool _showingRewarded = false;
+  bool _rewardEarned = false;
   DateTime? _sessionStartedAt;
   DateTime? _lastShownAt;
   bool _firstRoundAdShown = false;
   Completer<void>? _closedCompleter;
+  Completer<bool>? _rewardedCompleter;
 
   void startGameSession() {
     _sessionStartedAt = DateTime.now();
@@ -29,39 +32,56 @@ class AdService {
     if (_initialized || _initializing) return;
     _initializing = true;
     _sessionStartedAt = DateTime.now();
-    try {
-      Appodeal.setTesting(testing);
-      Appodeal.setLogLevel(
-        testing ? Appodeal.LogLevelVerbose : Appodeal.LogLevelNone,
-      );
-      Appodeal.setChildDirectedTreatment(false);
-      Appodeal.setAutoCache(AppodealAdType.Interstitial, true);
-      Appodeal.muteVideosIfCallsMuted(true);
-      Appodeal.setInterstitialCallbacks(
-        onInterstitialShown: () {
-          _lastShownAt = DateTime.now();
-          _firstRoundAdShown = true;
-        },
-        onInterstitialShowFailed: _finishShowing,
-        onInterstitialClosed: _finishShowing,
-        onInterstitialExpired: _finishShowing,
-      );
+    runZonedGuarded(
+      () {
+        Appodeal.setTesting(testing);
+        Appodeal.setLogLevel(
+          testing ? Appodeal.LogLevelVerbose : Appodeal.LogLevelNone,
+        );
+        Appodeal.setChildDirectedTreatment(false);
+        Appodeal.setAutoCache(AppodealAdType.Interstitial, true);
+        Appodeal.setAutoCache(AppodealAdType.RewardedVideo, true);
+        Appodeal.muteVideosIfCallsMuted(true);
+        Appodeal.setInterstitialCallbacks(
+          onInterstitialShown: () {
+            _lastShownAt = DateTime.now();
+            _firstRoundAdShown = true;
+          },
+          onInterstitialShowFailed: _finishShowing,
+          onInterstitialClosed: _finishShowing,
+          onInterstitialExpired: _finishShowing,
+        );
+        Appodeal.setRewardedVideoCallbacks(
+          onRewardedVideoFinished: (_, _) {
+            _rewardEarned = true;
+          },
+          onRewardedVideoClosed: (isFinished) {
+            _finishRewarded(isFinished || _rewardEarned);
+          },
+          onRewardedVideoShowFailed: () => _finishRewarded(false),
+          onRewardedVideoExpired: () => _finishRewarded(false),
+        );
 
-      Appodeal.initialize(
-        appKey: appKey,
-        adTypes: const [AppodealAdType.Interstitial],
-        onInitializationFinished: (errors) {
-          _initialized = true;
-          _initializing = false;
-          if (errors != null && errors.isNotEmpty) {
-            debugPrint('Appodeal initialization: $errors');
-          }
-        },
-      );
-    } catch (error) {
-      debugPrint('Appodeal unavailable: $error');
-      _initializing = false;
-    }
+        Appodeal.initialize(
+          appKey: appKey,
+          adTypes: const [
+            AppodealAdType.Interstitial,
+            AppodealAdType.RewardedVideo,
+          ],
+          onInitializationFinished: (errors) {
+            _initialized = true;
+            _initializing = false;
+            if (errors != null && errors.isNotEmpty) {
+              debugPrint('Appodeal initialization: $errors');
+            }
+          },
+        );
+      },
+      (error, _) {
+        debugPrint('Appodeal unavailable: $error');
+        _initializing = false;
+      },
+    );
   }
 
   Future<bool> canShowAfterTurn(
@@ -122,6 +142,48 @@ class AdService {
     }
   }
 
+  Future<bool> canShowRewarded() async {
+    if (!_initialized || _showingRewarded) return false;
+    try {
+      return await Appodeal.canShow(AppodealAdType.RewardedVideo, placement);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> showRewardedAd() async {
+    if (!_initialized || _showingRewarded) return false;
+    try {
+      final available = await Appodeal.canShow(
+        AppodealAdType.RewardedVideo,
+        placement,
+      );
+      if (!available) return false;
+      _showingRewarded = true;
+      _rewardEarned = false;
+      _rewardedCompleter = Completer<bool>();
+      final accepted = await Appodeal.show(
+        AppodealAdType.RewardedVideo,
+        placement,
+      );
+      if (!accepted) {
+        _finishRewarded(false);
+        return false;
+      }
+      return await _rewardedCompleter!.future.timeout(
+        const Duration(minutes: 2),
+        onTimeout: () {
+          _finishRewarded(false);
+          return false;
+        },
+      );
+    } catch (error) {
+      debugPrint('Rewarded ad unavailable: $error');
+      _finishRewarded(false);
+      return false;
+    }
+  }
+
   Future<bool> showTestWhenReady() async {
     for (var attempt = 0; attempt < 30; attempt++) {
       if (_initialized &&
@@ -138,5 +200,15 @@ class AdService {
     final completer = _closedCompleter;
     _closedCompleter = null;
     if (completer != null && !completer.isCompleted) completer.complete();
+  }
+
+  void _finishRewarded(bool earned) {
+    _showingRewarded = false;
+    _rewardEarned = false;
+    final completer = _rewardedCompleter;
+    _rewardedCompleter = null;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(earned);
+    }
   }
 }

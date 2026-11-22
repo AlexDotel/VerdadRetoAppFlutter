@@ -12,13 +12,11 @@ class NotificationService {
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
-  NotificationDetails get _details => NotificationDetails(
+  NotificationDetails _details(String lang) => NotificationDetails(
     android: AndroidNotificationDetails(
       'weekend_game_reminders',
-      deviceLanguageCode() == 'es'
-          ? 'Recordatorios para jugar'
-          : 'Game reminders',
-      channelDescription: deviceLanguageCode() == 'es'
+      lang == 'es' ? 'Recordatorios para jugar' : 'Game reminders',
+      channelDescription: lang == 'es'
           ? 'Invitaciones para volver a jugar Verdad o Reto'
           : 'Invitations to play Truth or Dare again',
       importance: Importance.defaultImportance,
@@ -53,21 +51,23 @@ class NotificationService {
         true;
   }
 
-  Future<bool> showTestNotification() async {
+  Future<bool> showTestNotification({String? languageCode}) async {
+    final lang = languageCode ?? deviceLanguageCode();
     final allowed = await requestPermission();
     if (!allowed) return false;
     await _plugin.show(
       id: 900,
-      title: deviceLanguageCode() == 'es' ? 'Verdad o Reto' : 'Truth or Dare',
-      body: deviceLanguageCode() == 'es'
+      title: lang == 'es' ? 'Verdad o Reto' : 'Truth or Dare',
+      body: lang == 'es'
           ? '¿Listos para jugar? Esta es una notificación de prueba.'
           : 'Ready to play? This is a test notification.',
-      notificationDetails: _details,
+      notificationDetails: _details(lang),
     );
     return true;
   }
 
-  Future<void> scheduleReminders() async {
+  Future<void> scheduleReminders({String? languageCode}) async {
+    final lang = languageCode ?? deviceLanguageCode();
     await initialize();
     await cancelReminders();
     const schedules = <(int, int, int)>[
@@ -83,7 +83,7 @@ class NotificationService {
       (110, DateTime.sunday, 20),
       (111, DateTime.sunday, 22),
     ];
-    final bodies = deviceLanguageCode() == 'es'
+    final bodies = lang == 'es'
         ? const [
             '¿Una verdad o un reto? Reúne al grupo y que empiece la partida.',
             'La noche está para buenas historias. ¿Jugamos?',
@@ -98,10 +98,10 @@ class NotificationService {
       final (id, weekday, hour) = schedules[index];
       await _plugin.zonedSchedule(
         id: id,
-        title: deviceLanguageCode() == 'es' ? 'Verdad o Reto' : 'Truth or Dare',
+        title: lang == 'es' ? 'Verdad o Reto' : 'Truth or Dare',
         body: bodies[index % bodies.length],
         scheduledDate: _nextWeekdayTime(weekday, hour),
-        notificationDetails: _details,
+        notificationDetails: _details(lang),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       );

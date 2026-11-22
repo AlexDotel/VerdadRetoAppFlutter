@@ -3,6 +3,7 @@ import 'dart:ui' show Locale, Offset, Size;
 import 'package:flutter/material.dart' show AlertDialog, Icons, TextField;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:verdad_o_reto/game_controller.dart';
 import 'package:verdad_o_reto/game_data.dart';
 import 'package:verdad_o_reto/game_models.dart';
 import 'package:verdad_o_reto/main.dart';
@@ -19,6 +20,47 @@ void main() {
   tearDown(() {
     TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher
         .clearLocaleTestValue();
+  });
+
+  test('todas las barajas en español e inglés tienen 100 tarjetas únicas y limpias', () {
+    for (final english in [false, true]) {
+      for (final mode in GameMode.values) {
+        final intensities = mode == GameMode.familia
+            ? const [Intensity.suave]
+            : Intensity.values;
+        for (final intensity in intensities) {
+          for (final type in CardType.values) {
+            final cards = contentFor(
+              mode,
+              intensity,
+              type,
+              english: english,
+            );
+            expect(
+              cards,
+              hasLength(cardsPerType),
+              reason: 'Falta contenido en $mode/$intensity/$type (en=$english)',
+            );
+            expect(
+              cards.toSet(),
+              hasLength(cardsPerType),
+              reason: 'Hay duplicados en $mode/$intensity/$type (en=$english)',
+            );
+            for (final text in cards) {
+              expect(text.trim(), isNotEmpty);
+              expect(text.contains('{topic}'), isFalse);
+              expect(text.contains('penetro/a'), isFalse);
+              expect(text.contains('lamedido'), isFalse);
+              expect(RegExp(r'\bde el\b').hasMatch(text), isFalse);
+              if (english) {
+                expect(text.contains('¿'), isFalse);
+                expect(text.contains('¡'), isFalse);
+              }
+            }
+          }
+        }
+      }
+    }
   });
 
   test('el modo Familia contiene 100 verdades y 100 retos únicos', () {
@@ -56,6 +98,135 @@ void main() {
     expect(truths.any((text) => text.contains('¿')), isFalse);
   });
 
+  test('GameController evita duplicados al truncar nombres a 18 caracteres', () async {
+    SharedPreferences.setMockInitialValues({'consent': true});
+    final controller = GameController();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.addPlayer('NombreMuyLargo1234A'), isTrue);
+    expect(controller.addPlayer('NombreMuyLargo1234B'), isFalse);
+    expect(controller.players.toSet().length, controller.players.length);
+  });
+
+  test('skipPlayer no cuenta tarjetas incompletas y pausa se reinicia al empezar', () async {
+    SharedPreferences.setMockInitialValues({'consent': true});
+    final controller = GameController();
+    await Future<void>.delayed(Duration.zero);
+
+    controller.startGame();
+    controller.chooseCard(CardType.verdad);
+    await controller.skipPlayer();
+    expect(controller.truthsCompleted, 0);
+    expect(controller.daresCompleted, 0);
+
+    controller.togglePause();
+    expect(controller.paused, isTrue);
+    controller.startGame();
+    expect(controller.paused, isFalse);
+  });
+
+  test('los filtros de contenido usan límites de palabra y no falsos positivos', () async {
+    SharedPreferences.setMockInitialValues({'consent': true});
+    final controller = GameController();
+    await Future<void>.delayed(Duration.zero);
+
+    controller.setContentFilter('public', false);
+    controller.setContentFilter('personal', false);
+    controller.setContentFilter('alcohol', false);
+
+    // Words containing "bar", "car", "lie", "shot" as substrings must NOT be blocked
+    expect(
+      controller.allowsCardText('¿Qué comida te gustaría probar hoy?'),
+      isTrue,
+    );
+    expect(
+      controller.allowsCardText('What is your most embarrassing memory?'),
+      isTrue,
+    );
+    expect(
+      controller.allowsCardText('Pick a favorite character and act it out.'),
+      isTrue,
+    );
+    expect(
+      controller.allowsCardText('What childhood myth did you believe?'),
+      isTrue,
+    );
+    // Actual matching words MUST be blocked
+    expect(
+      controller.allowsCardText('¿Has ligado alguna vez en un bar?'),
+      isFalse,
+    );
+    expect(
+      controller.allowsCardText('¿Alguna vez tomaste un chupito?'),
+      isFalse,
+    );
+  });
+
+  test('el mazo se repone si se agotan todas las tarjetas de un tipo', () async {
+    SharedPreferences.setMockInitialValues({'consent': true});
+    final controller = GameController();
+    await Future<void>.delayed(Duration.zero);
+
+    controller.startGame();
+    for (var i = 0; i < 105; i++) {
+      controller.chooseCard(CardType.verdad);
+      expect(controller.currentCard, isNotNull);
+      expect(controller.currentCard!.type, CardType.verdad);
+    }
+  });
+
+  test('detectCardTimerSeconds detecta tiempos en español e inglés', () {
+    expect(detectCardTimerSeconds('Haz un baile durante 20 segundos.'), 20);
+    expect(detectCardTimerSeconds('Hold eye contact for 15 seconds.'), 15);
+    expect(detectCardTimerSeconds('Hazme un masaje de 1 minuto.'), 60);
+    expect(detectCardTimerSeconds('¿Cuál es tu comida favorita?'), isNull);
+  });
+
+  test('tarjetas personalizadas: 3 gratis y luego cuestan 30 Chispas', () async {
+    SharedPreferences.setMockInitialValues({'consent': true, 'sparks': 40});
+    final controller = GameController();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.nextCustomCardIsFree, isTrue);
+    expect(controller.addCustomCard(CardType.verdad, 'Pregunta propia 1'), isTrue);
+    expect(controller.addCustomCard(CardType.verdad, 'Pregunta propia 2'), isTrue);
+    expect(controller.addCustomCard(CardType.reto, 'Reto propio 3'), isTrue);
+    // 3 gratis consumidas + logro Guionista (+35 Chispas => 75 Chispas)
+    expect(controller.nextCustomCardIsFree, isFalse);
+    expect(controller.sparks, 75);
+
+    // La 4ª tarjeta cuesta 30 Chispas
+    expect(controller.addCustomCard(CardType.reto, 'Reto propio 4'), isTrue);
+    expect(controller.sparks, 45);
+    expect(controller.customCards, hasLength(4));
+  });
+
+  test('desbloqueo de mazos con Chispas, favoritos, presets y premios por jugador', () async {
+    SharedPreferences.setMockInitialValues({'consent': true, 'sparks': 100});
+    final controller = GameController();
+    await Future<void>.delayed(Duration.zero);
+
+    // Desbloqueo de mazo
+    expect(controller.unlockPackWithSparks('midnight_confessions'), isTrue);
+    expect(controller.sparks, 20);
+    expect(controller.unlockedPacks.contains('midnight_confessions'), isTrue);
+
+    // Presets de jugadores
+    expect(controller.savePlayerPreset('Viernes'), isTrue);
+    controller.addPlayer('Lucía');
+    controller.applyPlayerPreset('Viernes');
+    expect(controller.players, ['Alex', 'Sam']);
+
+    // Favoritos y premios en partida
+    controller.startGame();
+    controller.chooseCard(CardType.reto);
+    final card = controller.currentCard!;
+    controller.toggleFavorite(card);
+    expect(controller.isFavorite(card), isTrue);
+    await controller.nextTurn();
+    expect(controller.playerAwards.any((a) => a.title == 'Más valiente'), isTrue);
+  });
+
   testWidgets('muestra la pantalla inicial de Verdad o Reto', (tester) async {
     SharedPreferences.setMockInitialValues({
       'consent': true,
@@ -89,6 +260,59 @@ void main() {
     expect(find.text('Play The Bomb'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Play Impostor'), 300);
     expect(find.text('Play Impostor'), findsOneWidget);
+  });
+
+  testWidgets('traduce correctamente el resumen final en inglés', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'consent': true,
+      'language': 'en',
+      'maxRounds': 1,
+      'notification_permission_prompted': true,
+    });
+    await tester.binding.setSurfaceSize(const Size(393, 852));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(const TruthOrDareApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('START PLAYING'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('CONTINUE'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Family'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('LET THE GAME BEGIN!'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('TRUTH'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('VIEW SUMMARY'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('PLAY AGAIN'), findsOneWidget);
+    expect(find.text('BACK TO HOME'), findsOneWidget);
+  });
+
+  testWidgets('pluraliza bien el aviso cuando faltan 2 jugadores activos', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'consent': true,
+      'language': 'es',
+      'notification_permission_prompted': true,
+    });
+
+    await tester.pumpWidget(const TruthOrDareApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('EMPEZAR A JUGAR'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Eliminar Alex'));
+    await tester.pumpAndSettle();
+    expect(find.text('Necesitas 1 jugador activo más'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Eliminar Sam'));
+    await tester.pumpAndSettle();
+    expect(find.text('Necesitas 2 jugadores activos más'), findsOneWidget);
   });
 
   testWidgets(

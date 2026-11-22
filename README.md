@@ -31,6 +31,16 @@ flutter test
 
 Las claves privadas no forman parte del repositorio. Para una compilación destinada a Google Play, copia `android/key.properties.example` como `android/key.properties` y configura localmente la clave de subida.
 
+Para compilar una versión firmada, configura `storeFile` como `../../private-signing/verdad-o-reto-upload.jks` en tu `android/key.properties` local y ejecuta:
+
+```powershell
+flutter clean
+flutter pub get
+flutter build appbundle --release
+```
+
+El AAB se genera en `build/app/outputs/bundle/release/app-release.aab`. Nunca publiques `android/key.properties`, archivos `.jks` ni sus contraseñas.
+
 ## Identificador Android
 
 `nuviapps.co.verdadoreto`

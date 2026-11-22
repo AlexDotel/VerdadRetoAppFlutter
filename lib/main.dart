@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:confetti/confetti.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter/material.dart';
@@ -5,9 +7,9 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:styled_widget/styled_widget.dart';
 import 'audio_feedback.dart';
 import 'app_language.dart';
+import 'feature_sheets.dart';
 import 'game_controller.dart';
 import 'game_models.dart';
 import 'notification_service.dart';
@@ -85,6 +87,11 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
     setState(() => language = value);
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString('language', value);
+    final resolved =
+        value == 'es' || value == 'en' ? value : deviceLanguageCode();
+    unawaited(
+      NotificationService.instance.scheduleReminders(languageCode: resolved),
+    );
   }
 
   Future<void> _openStore(
@@ -124,7 +131,9 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
       await NotificationService.instance.requestPermission();
       await preferences.setBool(preferenceKey, true);
     }
-    await NotificationService.instance.scheduleReminders();
+    await NotificationService.instance.scheduleReminders(
+      languageCode: controller.languageCode,
+    );
   }
 
   Future<void> _handleBack(BuildContext dialogContext) async {
@@ -183,12 +192,6 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
 
   @override
   Widget build(BuildContext context) {
-    debugPaintBaselinesEnabled = false;
-    debugPaintSizeEnabled = false;
-    debugPaintLayerBordersEnabled = false;
-    debugPaintPointersEnabled = false;
-    debugRepaintRainbowEnabled = false;
-    debugRepaintTextRainbowEnabled = false;
     final selectedLocale = switch (language) {
       'es' => const Locale('es'),
       'en' => const Locale('en'),
@@ -225,7 +228,14 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
           onSurfaceVariant: Color(0xFFBDB4C1),
           outline: Color(0xFF443B49),
         ),
-        fontFamily: 'sans',
+        fontFamily: 'DMSans',
+        dividerColor: Colors.white.withValues(alpha: .08),
+        chipTheme: ChipThemeData(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          side: BorderSide(color: Colors.white.withValues(alpha: .10)),
+        ),
       ),
       theme: ThemeData(
         brightness: Brightness.light,
@@ -243,7 +253,16 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
           onSurfaceVariant: Color(0xFF685C70),
           outline: Color(0xFFD4CADB),
         ),
-        fontFamily: 'sans',
+        fontFamily: 'DMSans',
+        dividerColor: const Color(0xFFD4CADB).withValues(alpha: .55),
+        chipTheme: ChipThemeData(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          side: BorderSide(
+            color: const Color(0xFFD4CADB).withValues(alpha: .65),
+          ),
+        ),
       ),
       builder: (context, child) {
         final media = MediaQuery.of(context);
@@ -262,8 +281,10 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
           onPopInvokedWithResult: (didPop, _) {
             if (!didPop) _handleBack(homeContext);
           },
-          child: AppBackground(
-            child: AnimatedSwitcher(
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: AppBackground(
+              child: AnimatedSwitcher(
               duration: _duration(context, 180),
               reverseDuration: _duration(context, 100),
               switchInCurve: snappy,
@@ -318,6 +339,7 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
                       _openStore('nuviapptest.co.impostor', launchFirst: true),
                 ),
               },
+              ),
             ),
           ),
         ),
@@ -338,16 +360,8 @@ class AppBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final light = Theme.of(context).brightness == Brightness.light;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: light
-              ? const [Color(0xFFFFFBFF), Color(0xFFF8F3FB), Color(0xFFF1E9F6)]
-              : const [Color(0xFF18131D), Color(0xFF141017), Color(0xFF100D12)],
-        ),
-      ),
+    return ColoredBox(
+      color: light ? const Color(0xFFFAF8FC) : const Color(0xFF110D16),
       child: Material(
         type: MaterialType.transparency,
         child: SafeArea(child: child),
@@ -362,14 +376,14 @@ bool _isLight(BuildContext context) =>
 Color _secondaryText(BuildContext context) =>
     Theme.of(context).colorScheme.onSurfaceVariant;
 
-Color _softSurface(BuildContext context, {double darkAlpha = .06}) =>
+Color _softSurface(BuildContext context, {double darkAlpha = .04}) =>
     _isLight(context)
-    ? Colors.white.withValues(alpha: .82)
+    ? Colors.white
     : Colors.white.withValues(alpha: darkAlpha);
 
-Color _softOutline(BuildContext context, {double darkAlpha = .12}) =>
+Color _softOutline(BuildContext context, {double darkAlpha = .10}) =>
     _isLight(context)
-    ? Theme.of(context).colorScheme.outline.withValues(alpha: .72)
+    ? Theme.of(context).colorScheme.outline.withValues(alpha: .42)
     : Colors.white.withValues(alpha: darkAlpha);
 
 Color _accentColor(BuildContext context, Color color) {
@@ -390,9 +404,9 @@ Color _accentColor(BuildContext context, Color color) {
 
 TextStyle _sectionStyle(BuildContext context) => TextStyle(
   color: _secondaryText(context),
-  fontSize: 12,
-  fontWeight: FontWeight.w800,
-  letterSpacing: 1.5,
+  fontSize: 11,
+  fontWeight: FontWeight.w700,
+  letterSpacing: 1.7,
 );
 
 class ConsentScreen extends StatefulWidget {
@@ -416,18 +430,43 @@ class _ConsentScreenState extends State<ConsentScreen> {
       onTap: adult && consent ? widget.controller.acceptConsent : null,
     ),
     children: [
-      Icon(Icons.shield_outlined, color: _accentColor(context, gold), size: 58),
+      Center(
+        child: Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: _accentColor(context, gold).withValues(alpha: .12),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: _accentColor(context, gold).withValues(alpha: .22),
+            ),
+          ),
+          child: Icon(
+            Icons.shield_outlined,
+            color: _accentColor(context, gold),
+            size: 30,
+          ),
+        ),
+      ),
       const SizedBox(height: 20),
       Text(
         context.tr('Antes de jugar'),
         textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900),
+        style: const TextStyle(
+          fontSize: 30,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -.8,
+        ),
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: 8),
       Text(
         context.tr('La diversión siempre termina donde empieza un límite.'),
         textAlign: TextAlign.center,
-        style: TextStyle(color: _secondaryText(context), fontSize: 16),
+        style: TextStyle(
+          color: _secondaryText(context),
+          fontSize: 15,
+          height: 1.45,
+        ),
       ),
       const SizedBox(height: 28),
       const InfoCard(
@@ -440,19 +479,42 @@ class _ConsentScreenState extends State<ConsentScreen> {
         title: 'Privado y sin conexión',
         subtitle: 'No grabamos respuestas ni enviamos datos personales.',
       ),
-      CheckboxListTile(
-        value: adult,
-        onChanged: (value) => setState(() => adult = value ?? false),
-        title: Text(context.tr('Todas las personas tienen 18 años o más')),
-        controlAffinity: ListTileControlAffinity.leading,
-      ),
-      CheckboxListTile(
-        value: consent,
-        onChanged: (value) => setState(() => consent = value ?? false),
-        title: Text(
-          context.tr('Entendemos que el consentimiento puede retirarse'),
+      const SizedBox(height: 8),
+      Container(
+        decoration: BoxDecoration(
+          color: _softSurface(context),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _softOutline(context)),
         ),
-        controlAffinity: ListTileControlAffinity.leading,
+        child: Column(
+          children: [
+            CheckboxListTile(
+              value: adult,
+              onChanged: (value) => setState(() => adult = value ?? false),
+              title: Text(
+                context.tr('Todas las personas tienen 18 años o más'),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            Divider(height: 1, color: _softOutline(context)),
+            CheckboxListTile(
+              value: consent,
+              onChanged: (value) => setState(() => consent = value ?? false),
+              title: Text(
+                context.tr('Entendemos que el consentimiento puede retirarse'),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+          ],
+        ),
       ),
     ],
   );
@@ -480,7 +542,15 @@ class InfoCard extends StatelessWidget {
     ),
     child: Row(
       children: [
-        Icon(icon, color: _accentColor(context, purple)),
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: _accentColor(context, purple).withValues(alpha: .11),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: _accentColor(context, purple), size: 20),
+        ),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -488,11 +558,19 @@ class InfoCard extends StatelessWidget {
             children: [
               Text(
                 context.tr(title),
-                style: const TextStyle(fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
               ),
+              const SizedBox(height: 2),
               Text(
                 context.tr(subtitle),
-                style: TextStyle(color: _secondaryText(context), fontSize: 13),
+                style: TextStyle(
+                  color: _secondaryText(context),
+                  fontSize: 13,
+                  height: 1.35,
+                ),
               ),
             ],
           ),
@@ -516,24 +594,64 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final controlBackground = _isLight(context)
-        ? scheme.primary.withValues(alpha: .12)
-        : coral;
-    final controlForeground = _isLight(context) ? scheme.primary : ink;
     final controlStyle = IconButton.styleFrom(
-      backgroundColor: controlBackground,
-      foregroundColor: controlForeground,
-      minimumSize: const Size(48, 48),
+      backgroundColor: Colors.transparent,
+      foregroundColor: scheme.onSurface,
+      minimumSize: const Size(42, 42),
+      shape: CircleBorder(side: BorderSide(color: _softOutline(context))),
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
+      padding: const EdgeInsets.fromLTRB(26, 16, 26, 28),
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              IconButton.filled(
+              Pressable(
+                onTap: () => showRewardsAndPacksSheet(context, controller),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: _softOutline(context)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '⚡ ${controller.sparks}',
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                      Container(
+                        width: 3,
+                        height: 3,
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: _secondaryText(context),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      Text(
+                        context.tr(controller.rankTitle),
+                        style: TextStyle(
+                          color: _secondaryText(context),
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(),
+              IconButton(
                 style: controlStyle,
                 onPressed: () {
                   AppAudio.play(AppSound.toggle);
@@ -544,20 +662,20 @@ class WelcomeScreen extends StatelessWidget {
                     : context.tr('Activar modo claro'),
                 icon: Icon(
                   lightMode
-                      ? Icons.dark_mode_rounded
-                      : Icons.light_mode_rounded,
-                  size: 20,
+                      ? Icons.dark_mode_outlined
+                      : Icons.light_mode_outlined,
+                  size: 19,
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton.filled(
+              IconButton(
                 style: controlStyle,
                 onPressed: () {
                   AppAudio.play(AppSound.tap);
                   controller.showSettings();
                 },
                 tooltip: context.tr('Configuración'),
-                icon: const Icon(Icons.settings_rounded, size: 20),
+                icon: const Icon(Icons.tune_rounded, size: 19),
               ),
             ],
           ),
@@ -567,8 +685,8 @@ class WelcomeScreen extends StatelessWidget {
             delay: 20,
             child: Center(
               child: SizedBox(
-                width: 196,
-                height: 196,
+                width: 128,
+                height: 128,
                 child: Image.asset(
                   'assets/branding/verdad-o-reto-logo-transparent.png',
                   key: const ValueKey('brand-logo'),
@@ -578,7 +696,7 @@ class WelcomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 20),
           _welcomeEntrance(
             context,
             delay: 70,
@@ -588,14 +706,37 @@ class WelcomeScreen extends StatelessWidget {
                   context.tr('Verdad o Reto'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 34,
-                    height: 1.05,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .4,
+                    color: scheme.onSurface,
+                    fontSize: 40,
+                    height: 1.0,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.6,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 2.5,
+                      decoration: BoxDecoration(
+                        color: coral,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      width: 22,
+                      height: 2.5,
+                      decoration: BoxDecoration(
+                        color: purple,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 Text(
                   context.tr(
                     'Las mejores historias empiezan\ncon una pregunta.',
@@ -603,8 +744,9 @@ class WelcomeScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: _secondaryText(context),
-                    fontSize: 16,
-                    height: 1.4,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
                   ),
                 ),
               ],
@@ -619,15 +761,26 @@ class WelcomeScreen extends StatelessWidget {
                 PrimaryButton(
                   label: 'EMPEZAR A JUGAR',
                   icon: Icons.play_arrow_rounded,
-                  foregroundColor: ink,
                   onTap: controller.showPlayers,
                 ),
-                const SizedBox(height: 14),
+                if (controller.hasSavedSession &&
+                    controller.activePlayers.length >= 2) ...[
+                  const SizedBox(height: 10),
+                  SecondaryButton(
+                    label: 'PARTIDA RÁPIDA',
+                    color: Theme.of(context).colorScheme.primary,
+                    icon: Icons.bolt_rounded,
+                    onTap: controller.startQuickGame,
+                  ),
+                ],
+                const SizedBox(height: 16),
                 Text(
                   context.tr('2–12 jugadores  ·  Sin conexión'),
                   style: TextStyle(
                     color: _secondaryText(context),
-                    fontSize: 13,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: .2,
                   ),
                 ),
               ],
@@ -694,6 +847,18 @@ class _PlayersScreenState extends State<PlayersScreen> {
     if (value != null) widget.controller.editPlayer(player, value);
   }
 
+  Future<void> savePreset() async {
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => const _EditPlayerDialog(
+        initialValue: '',
+        titleKey: 'Guardar grupo',
+        hintKey: 'Nombre del grupo',
+      ),
+    );
+    if (value != null) widget.controller.savePlayerPreset(value);
+  }
+
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -717,21 +882,25 @@ class _PlayersScreenState extends State<PlayersScreen> {
                 decoration: InputDecoration(
                   counterText: '',
                   hintText: context.tr('Nombre del jugador'),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
                   filled: true,
                   fillColor: _softSurface(context),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(999),
                     borderSide: BorderSide(color: _softOutline(context)),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(999),
                     borderSide: BorderSide(color: _softOutline(context)),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(999),
                     borderSide: BorderSide(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 2,
+                      color: Theme.of(context).colorScheme.onSurface,
+                      width: 1.4,
                     ),
                   ),
                 ),
@@ -741,22 +910,50 @@ class _PlayersScreenState extends State<PlayersScreen> {
             Pressable(
               onTap: addPlayer,
               child: Container(
-                width: 58,
-                height: 58,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(18),
+                  color: Theme.of(context).colorScheme.onSurface,
+                  shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.add_rounded,
-                  size: 28,
-                  color: Theme.of(context).colorScheme.onPrimary,
+                  size: 24,
+                  color: Theme.of(context).colorScheme.surface,
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 20),
+        if (widget.controller.activePlayers.length >= 2 ||
+            widget.controller.playerPresets.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                if (widget.controller.activePlayers.length >= 2)
+                  ActionChip(
+                    avatar: const Icon(Icons.bookmark_add_outlined, size: 16),
+                    label: Text(context.tr('Guardar grupo')),
+                    onPressed: savePreset,
+                  ),
+                for (final name in widget.controller.playerPresets.keys) ...[
+                  const SizedBox(width: 8),
+                  InputChip(
+                    label: Text(name),
+                    onPressed: () {
+                      AppAudio.play(AppSound.select);
+                      widget.controller.applyPlayerPreset(name);
+                    },
+                    onDeleted: () => widget.controller.deletePlayerPreset(name),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
         Text(
           '${context.tr('JUGADORES')}  ${widget.controller.players.length}/12',
           style: _sectionStyle(context),
@@ -802,45 +999,54 @@ class _PlayersScreenState extends State<PlayersScreen> {
               final active = !widget.controller.inactivePlayers.contains(
                 player,
               );
-              return Container(
+              return AnimatedOpacity(
                 key: ValueKey(player),
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
-                decoration: BoxDecoration(
-                  color: _softSurface(context, darkAlpha: active ? .08 : .035),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: _softOutline(context)),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: _accentColor(
-                        context,
-                        purple,
-                      ).withValues(alpha: .18),
-                      child: Text(
-                        player[0].toUpperCase(),
-                        style: TextStyle(
-                          color: _isLight(context)
-                              ? Theme.of(context).colorScheme.primary
-                              : Colors.white,
-                          fontWeight: FontWeight.w800,
+                duration: _duration(context, 160),
+                opacity: active ? 1 : .52,
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+                  decoration: BoxDecoration(
+                    color: _softSurface(context, darkAlpha: active ? .055 : .025),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: _softOutline(context)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: _accentColor(
+                            context,
+                            purple,
+                          ).withValues(alpha: .14),
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          player[0].toUpperCase(),
+                          style: TextStyle(
+                            color: _accentColor(context, purple),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        player,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          player,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -.2,
+                          ),
                         ),
                       ),
-                    ),
                     Switch.adaptive(
                       value: active,
                       activeTrackColor: _accentColor(context, purple),
@@ -873,17 +1079,18 @@ class _PlayersScreenState extends State<PlayersScreen> {
                         color: _secondaryText(context),
                       ),
                     ),
-                    ReorderableDragStartListener(
-                      index: index,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Icon(
-                          Icons.drag_handle_rounded,
-                          color: _secondaryText(context),
+                      ReorderableDragStartListener(
+                        index: index,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Icon(
+                            Icons.drag_handle_rounded,
+                            color: _secondaryText(context),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -892,11 +1099,21 @@ class _PlayersScreenState extends State<PlayersScreen> {
         if (widget.controller.activePlayers.length < 2)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: Text(
-              context.isEnglish
-                  ? 'You need ${2 - widget.controller.activePlayers.length} more active player'
-                  : 'Necesitas ${2 - widget.controller.activePlayers.length} jugador más activo',
-              style: TextStyle(color: _accentColor(context, gold)),
+            child: Builder(
+              builder: (context) {
+                final missing = 2 - widget.controller.activePlayers.length;
+                final message = context.isEnglish
+                    ? (missing == 1
+                        ? 'You need 1 more active player'
+                        : 'You need $missing more active players')
+                    : (missing == 1
+                        ? 'Necesitas 1 jugador activo más'
+                        : 'Necesitas $missing jugadores activos más');
+                return Text(
+                  message,
+                  style: TextStyle(color: _accentColor(context, gold)),
+                );
+              },
             ),
           ),
         PrimaryButton(
@@ -916,9 +1133,15 @@ class _PlayersScreenState extends State<PlayersScreen> {
 }
 
 class _EditPlayerDialog extends StatefulWidget {
-  const _EditPlayerDialog({required this.initialValue});
+  const _EditPlayerDialog({
+    required this.initialValue,
+    this.titleKey = 'Editar jugador',
+    this.hintKey,
+  });
 
   final String initialValue;
+  final String titleKey;
+  final String? hintKey;
 
   @override
   State<_EditPlayerDialog> createState() => _EditPlayerDialogState();
@@ -943,13 +1166,16 @@ class _EditPlayerDialogState extends State<_EditPlayerDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(context.tr('Editar jugador')),
+    title: Text(context.tr(widget.titleKey)),
     content: TextField(
       controller: editor,
       autofocus: true,
       maxLength: 18,
       textInputAction: TextInputAction.done,
       onSubmitted: (_) => save(),
+      decoration: widget.hintKey == null
+          ? null
+          : InputDecoration(hintText: context.tr(widget.hintKey!)),
     ),
     actions: [
       TextButton(
@@ -1076,17 +1302,115 @@ class IntensitySetupScreen extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Pressable(
+                    onTap: () => showRewardsAndPacksSheet(context, controller),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _softSurface(context),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _softOutline(context)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_outlined,
+                            size: 18,
+                            color: _accentColor(context, purple),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${context.tr('Mazos y logros')} (${controller.activeBonusPacks.length})',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Pressable(
+                    onTap: () => showCustomCardsSheet(context, controller),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _softSurface(context),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _softOutline(context)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.edit_note_rounded,
+                            size: 19,
+                            color: _accentColor(context, coral),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${context.tr('Mis tarjetas')} (${controller.customCards.length})',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 14),
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: Text(
-                context.tr('Límites de contenido'),
-                style: TextStyle(fontWeight: FontWeight.w800),
+            Container(
+              decoration: BoxDecoration(
+                color: _softSurface(context),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: _softOutline(context)),
               ),
-              subtitle: Text(
-                context.tr('Desactiva lo que el grupo prefiera evitar'),
-                style: TextStyle(color: _secondaryText(context), fontSize: 13),
-              ),
+              clipBehavior: Clip.antiAlias,
+              child: ExpansionTile(
+                shape: const Border(),
+                collapsedShape: const Border(),
+                tilePadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                title: Text(
+                  context.tr('Límites de contenido'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+                subtitle: Text(
+                  context.tr('Desactiva lo que el grupo prefiera evitar'),
+                  style: TextStyle(
+                    color: _secondaryText(context),
+                    fontSize: 13,
+                  ),
+                ),
               children: [
                 ContentFilterTile(
                   label: 'Contacto físico',
@@ -1119,6 +1443,7 @@ class IntensitySetupScreen extends StatelessWidget {
                   onChanged: (v) => controller.setContentFilter('public', v),
                 ),
               ],
+              ),
             ),
             const SizedBox(height: 12),
           ],
@@ -1166,21 +1491,12 @@ class BottomActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
+    padding: const EdgeInsets.fromLTRB(22, 12, 22, 18),
     decoration: BoxDecoration(
-      color: _isLight(context)
-          ? Theme.of(context).colorScheme.surface.withValues(alpha: .97)
-          : ink.withValues(alpha: .96),
-      border: Border(top: BorderSide(color: _softOutline(context))),
-      boxShadow: _isLight(context)
-          ? [
-              BoxShadow(
-                color: ink.withValues(alpha: .08),
-                blurRadius: 18,
-                offset: const Offset(0, -6),
-              ),
-            ]
-          : null,
+      color: Theme.of(context).colorScheme.surface.withValues(
+        alpha: _isLight(context) ? .92 : .85,
+      ),
+      border: Border(top: BorderSide(color: _softOutline(context), width: .8)),
     ),
     child: child,
   );
@@ -1287,20 +1603,32 @@ class SelectCard extends StatelessWidget {
         child: AnimatedContainer(
           duration: _duration(context, 180),
           curve: snappy,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           decoration: BoxDecoration(
             color: selected
-                ? activeColor.withValues(alpha: _isLight(context) ? .11 : .18)
-                : _softSurface(context),
-            borderRadius: BorderRadius.circular(18),
+                ? _softSurface(context, darkAlpha: .08)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected ? activeColor : _softOutline(context),
-              width: selected ? 2 : 1,
+              color: selected
+                  ? Theme.of(context).colorScheme.onSurface.withValues(alpha: .42)
+                  : _softOutline(context),
+              width: selected ? 1.3 : .9,
             ),
           ),
           child: Row(
             children: [
-              Text(emoji, style: const TextStyle(fontSize: 27)),
+              AnimatedContainer(
+                duration: _duration(context, 160),
+                width: 3.5,
+                height: selected ? 26 : 12,
+                decoration: BoxDecoration(
+                  color: selected ? activeColor : _softOutline(context),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Text(emoji, style: const TextStyle(fontSize: 22)),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -1310,9 +1638,11 @@ class SelectCard extends StatelessWidget {
                       context.tr(title),
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
-                        fontSize: 17,
+                        fontSize: 16,
+                        letterSpacing: -.3,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       context.tr(subtitle),
                       style: TextStyle(
@@ -1323,25 +1653,12 @@ class SelectCard extends StatelessWidget {
                   ],
                 ),
               ),
-              AnimatedContainer(
-                duration: _duration(context, 160),
-                width: 20,
-                height: 20,
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: selected ? activeColor : _secondaryText(context),
-                    width: 2,
-                  ),
+              if (selected)
+                Icon(
+                  Icons.check_rounded,
+                  size: 18,
+                  color: activeColor,
                 ),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: selected ? activeColor : Colors.transparent,
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -1357,9 +1674,7 @@ class GameScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final card = controller.currentCard;
-    return MediaQuery(
-      data: MediaQuery.of(context).copyWith(disableAnimations: true),
-      child: Stack(
+    return Stack(
         children: [
           Column(
             children: [
@@ -1368,9 +1683,23 @@ class GameScreen extends StatelessWidget {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        '${context.isEnglish ? 'ROUND' : 'RONDA'} ${controller.turn}${controller.maxRounds > 0 ? ' / ${controller.maxRounds}' : ''}',
-                        style: _sectionStyle(context),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _softSurface(context),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: _softOutline(context)),
+                          ),
+                          child: Text(
+                            '${context.isEnglish ? 'ROUND' : 'RONDA'} ${controller.turn}${controller.maxRounds > 0 ? ' / ${controller.maxRounds}' : ''}',
+                            style: _sectionStyle(context),
+                          ),
+                        ),
                       ),
                     ),
                     IconButton(
@@ -1382,7 +1711,9 @@ class GameScreen extends StatelessWidget {
                         controller.paused ? 'Reanudar' : 'Pausar',
                       ),
                       icon: Icon(
-                        Icons.pause_rounded,
+                        controller.paused
+                            ? Icons.play_arrow_rounded
+                            : Icons.pause_rounded,
                         color: _secondaryText(context),
                       ),
                     ),
@@ -1416,9 +1747,15 @@ class GameScreen extends StatelessWidget {
                             onTruth: () =>
                                 controller.chooseCard(CardType.verdad),
                             onDare: () => controller.chooseCard(CardType.reto),
+                            onRandom: controller.chooseRandomCard,
                           )
                         else
-                          ChallengeCard(card: card),
+                          ChallengeCard(
+                            card: card,
+                            isFavorite: controller.isFavorite(card),
+                            onToggleFavorite: () =>
+                                controller.toggleFavorite(card),
+                          ),
                         const SizedBox(height: 18),
                         if (card != null)
                           SizedBox(
@@ -1441,25 +1778,59 @@ class GameScreen extends StatelessWidget {
           if (controller.paused)
             Positioned.fill(
               child: ColoredBox(
-                color: ink.withValues(alpha: .96),
+                color: Theme.of(
+                  context,
+                ).colorScheme.surface.withValues(alpha: .96),
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.all(32),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.pause_circle_outline_rounded,
                           size: 64,
-                          color: gold,
+                          color: _accentColor(context, gold),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           context.tr('Partida en pausa'),
+                          textAlign: TextAlign.center,
                           style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontSize: 28,
                             fontWeight: FontWeight.w900,
                           ),
+                        ),
+                        const SizedBox(height: 18),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            FilterChip(
+                              selected: controller.soundEnabled,
+                              avatar: Icon(
+                                controller.soundEnabled
+                                    ? Icons.volume_up_rounded
+                                    : Icons.volume_off_rounded,
+                                size: 17,
+                              ),
+                              label: Text(context.tr('Sonido')),
+                              onSelected: (v) =>
+                                  controller.setPreference('sound', v),
+                            ),
+                            FilterChip(
+                              selected: controller.hapticsEnabled,
+                              avatar: const Icon(
+                                Icons.vibration_rounded,
+                                size: 17,
+                              ),
+                              label: Text(context.tr('Vibración')),
+                              onSelected: (v) =>
+                                  controller.setPreference('haptics', v),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 22),
                         PrimaryButton(
@@ -1473,13 +1844,53 @@ class GameScreen extends StatelessWidget {
                 ),
               ),
             ),
-          if (!controller.paused)
+          if (controller.adBreakVisible)
+            Positioned.fill(
+              child: ColoredBox(
+                color: Theme.of(
+                  context,
+                ).colorScheme.surface.withValues(alpha: .96),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          context.tr('PUBLICIDAD'),
+                          style: _sectionStyle(context),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          context.tr('La partida continúa en un momento'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (!controller.paused && !controller.adBreakVisible)
             Positioned(
               right: 22,
               bottom: 18,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (card != null && controller.previousCard != null) ...[
+                    FloatingGameAction(
+                      tooltip: context.tr('Tarjeta anterior'),
+                      icon: Icons.undo_rounded,
+                      onTap: controller.restorePreviousCard,
+                    ),
+                    const SizedBox(width: 10),
+                  ],
                   if (card != null) ...[
                     FloatingGameAction(
                       tooltip: context.tr('Otra tarjeta'),
@@ -1497,8 +1908,7 @@ class GameScreen extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
+      );
   }
 }
 
@@ -1506,10 +1916,12 @@ class ChooseCardType extends StatelessWidget {
   const ChooseCardType({
     required this.onTruth,
     required this.onDare,
+    required this.onRandom,
     super.key,
   });
   final VoidCallback onTruth;
   final VoidCallback onDare;
+  final VoidCallback onRandom;
 
   @override
   Widget build(BuildContext context) {
@@ -1550,80 +1962,143 @@ class ChooseCardType extends StatelessWidget {
         child: choices,
       );
     }
-    return Container(
-      constraints: const BoxConstraints(minHeight: 244),
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-      decoration: BoxDecoration(
-        color: _softSurface(context),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: _softOutline(context)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            context.tr('ELIGE UNA OPCIÓN'),
-            style: TextStyle(
-              color: _secondaryText(context),
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.5,
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          context.tr('ELIGE UNA OPCIÓN'),
+          style: _sectionStyle(context),
+        ),
+        const SizedBox(height: 18),
+        choices,
+        const SizedBox(height: 18),
+        Pressable(
+          onTap: onRandom,
+          sound: AppSound.select,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: _softOutline(context)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('🎲', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 8),
+                Text(
+                  context.tr('Al azar'),
+                  style: TextStyle(
+                    color: _secondaryText(context),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: .2,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          choices,
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
 class ChallengeCard extends StatelessWidget {
-  const ChallengeCard({required this.card, super.key});
+  const ChallengeCard({
+    required this.card,
+    required this.isFavorite,
+    required this.onToggleFavorite,
+    super.key,
+  });
   final GameCard card;
+  final bool isFavorite;
+  final VoidCallback onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
-    final colors = card.type == CardType.verdad
-        ? truthCardColors
-        : dareCardColors;
+    final isTruth = card.type == CardType.verdad;
+    final accent = isTruth ? coral : purple;
+    final light = _isLight(context);
+    final scheme = Theme.of(context).colorScheme;
+    final timerSeconds = detectCardTimerSeconds(card.text);
     return Container(
-      constraints: const BoxConstraints(minHeight: 220),
+      constraints: const BoxConstraints(minHeight: 280),
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+      padding: const EdgeInsets.fromLTRB(26, 18, 26, 28),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
+        color: light ? Colors.white : const Color(0xFF1A1422),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: accent.withValues(alpha: light ? .48 : .52),
+          width: 1.5,
         ),
-        borderRadius: BorderRadius.circular(30),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(card.type.emoji, style: const TextStyle(fontSize: 38)),
-          const SizedBox(height: 10),
-          Text(
-            context.tr(card.type.title),
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 3,
-              color: Colors.white.withValues(alpha: .78),
+          Row(
+            children: [
+              Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Text(
+                context.tr(card.type.title),
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2.0,
+                  color: accent,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                onPressed: () {
+                  AppAudio.play(AppSound.tap);
+                  onToggleFavorite();
+                },
+                tooltip: context.tr(
+                  isFavorite ? 'Quitar de favoritas' : 'Guardar en favoritas',
+                ),
+                icon: Icon(
+                  isFavorite
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: isFavorite ? coral : _secondaryText(context),
+                  size: 21,
+                ),
+              ),
+            ],
+          ),
+          Divider(height: 1, color: _softOutline(context)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 26),
+            child: Text(
+              card.text,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: scheme.onSurface,
+                fontSize: 23.5,
+                height: 1.4,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -.45,
+              ),
             ),
           ),
-          const SizedBox(height: 17),
-          Text(
-            card.text,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              height: 1.3,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          if (timerSeconds != null)
+            CardTimerPill(
+              key: ValueKey('timer-${card.text}'),
+              seconds: timerSeconds,
+              accentColor: accent,
+            )
+          else
+            const SizedBox(height: 4),
         ],
       ),
     );
@@ -1641,28 +2116,27 @@ class PlayerTurnIdentity extends StatelessWidget {
   final int turn;
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.center,
     mainAxisSize: MainAxisSize.min,
     children: [
       Text(
         _faceForTurn(player, turn),
         semanticsLabel: context.tr('Carita del jugador'),
-        style: const TextStyle(fontSize: 44, height: 1),
+        style: const TextStyle(fontSize: 30, height: 1),
       ),
-      const SizedBox(height: 9),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+      const SizedBox(width: 12),
+      Flexible(
         child: Text(
           player,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurface,
-            fontSize: 32,
+            fontSize: 34,
             height: 1.05,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -.7,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -1.1,
           ),
         ),
       ),
@@ -1688,15 +2162,16 @@ class FloatingGameAction extends StatelessWidget {
     child: Pressable(
       onTap: onTap,
       child: Container(
-        width: 48,
-        height: 48,
+        width: 46,
+        height: 46,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
+          shape: BoxShape.circle,
+          border: Border.all(color: _softOutline(context)),
         ),
         child: Icon(
           icon,
-          size: 26,
+          size: 20,
           color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
@@ -1728,49 +2203,73 @@ class GameChoiceButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content =
-        Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+    final accent = colors.first;
+    final light = _isLight(context);
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        height: 158,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: light
+              ? Colors.white
+              : accent.withValues(alpha: .13),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(
+            color: accent.withValues(alpha: light ? .48 : .45),
+            width: 1.4,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(icon, color: Colors.white, size: 30),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: .5,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: .78),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: light ? .12 : .22),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: accent, size: 19),
+                ),
+                Icon(
+                  Icons.north_east_rounded,
+                  size: 16,
+                  color: accent.withValues(alpha: .65),
                 ),
               ],
-            )
-            .padding(horizontal: 14, vertical: 15)
-            .decorated(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: colors,
-              ),
-              borderRadius: BorderRadius.circular(24),
-            )
-            .height(116);
-    return Pressable(onTap: onTap, child: content);
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.3,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: _secondaryText(context),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -1810,70 +2309,174 @@ class _SummaryScreenState extends State<SummaryScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Stack(
-    alignment: Alignment.topCenter,
-    children: [
-      Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('🏆', style: TextStyle(fontSize: 72)),
-            const SizedBox(height: 18),
-            Text(
-              context.tr('¡Qué partida!'),
-              style: TextStyle(fontSize: 38, fontWeight: FontWeight.w900),
-            ),
-            Text(
-              context.isEnglish
-                  ? 'You completed ${widget.controller.truthsCompleted + widget.controller.daresCompleted} turns'
-                  : 'Habéis completado ${widget.controller.truthsCompleted + widget.controller.daresCompleted} turnos',
-              style: TextStyle(color: _secondaryText(context), fontSize: 17),
-            ),
-            const SizedBox(height: 24),
-            Row(
+  Widget build(BuildContext context) {
+    final c = widget.controller;
+    final awards = c.playerAwards;
+    final newBadges = appAchievements
+        .where((a) => c.newlyUnlockedAchievements.contains(a.id))
+        .toList();
+    return Stack(
+      alignment: Alignment.topCenter,
+      children: [
+        Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: StatCard(
-                    value: '${widget.controller.truthsCompleted}',
-                    label: 'Verdades',
-                    color: coral,
+                Container(
+                  width: 84,
+                  height: 84,
+                  decoration: BoxDecoration(
+                    color: _accentColor(context, gold).withValues(alpha: .12),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _accentColor(context, gold).withValues(alpha: .22),
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text('🏆', style: TextStyle(fontSize: 40)),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  context.tr('¡Qué partida!'),
+                  style: const TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.9,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: StatCard(
-                    value: '${widget.controller.daresCompleted}',
-                    label: 'Retos',
-                    color: purple,
+                Text(
+                  context.isEnglish
+                      ? 'You completed ${c.truthsCompleted + c.daresCompleted} turns'
+                      : 'Habéis completado ${c.truthsCompleted + c.daresCompleted} turnos',
+                  style: TextStyle(
+                    color: _secondaryText(context),
+                    fontSize: 16,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: StatCard(
-                    value: '${widget.controller.skippedCards}',
-                    label: 'Cambios',
-                    color: gold,
+                if (c.sessionSparksEarned > 0) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _accentColor(context, purple).withValues(
+                        alpha: .14,
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '+${c.sessionSparksEarned} ⚡ ${context.tr('Chispas')}',
+                      style: TextStyle(
+                        color: _accentColor(context, purple),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13.5,
+                      ),
+                    ),
                   ),
+                ],
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    Expanded(
+                      child: StatCard(
+                        value: '${c.truthsCompleted}',
+                        label: 'Verdades',
+                        color: coral,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatCard(
+                        value: '${c.daresCompleted}',
+                        label: 'Retos',
+                        color: purple,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatCard(
+                        value: '${c.skippedCards}',
+                        label: 'Cambios',
+                        color: gold,
+                      ),
+                    ),
+                  ],
+                ),
+                if (awards.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  Text(
+                    context.tr('PREMIOS DE LA PARTIDA'),
+                    style: _sectionStyle(context),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      for (final award in awards)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _softSurface(context),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: _softOutline(context)),
+                          ),
+                          child: Text(
+                            '${award.emoji} ${context.tr(award.title)}: ${award.player} (${award.detail})',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+                if (newBadges.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    context.tr('LOGROS DESBLOQUEADOS'),
+                    style: _sectionStyle(context),
+                  ),
+                  const SizedBox(height: 8),
+                  for (final badge in newBadges)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        '${badge.emoji} ${context.tr(badge.title)} (+${badge.rewardSparks} ⚡)',
+                        style: TextStyle(
+                          color: _accentColor(context, gold),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                    ),
+                ],
+                const SizedBox(height: 28),
+                PrimaryButton(
+                  label: 'JUGAR OTRA VEZ',
+                  icon: Icons.refresh_rounded,
+                  onTap: c.playAgain,
+                ),
+                const SizedBox(height: 12),
+                SecondaryButton(
+                  label: 'VOLVER AL INICIO',
+                  color: Theme.of(context).colorScheme.primary,
+                  icon: Icons.home_rounded,
+                  onTap: c.goHome,
                 ),
               ],
             ),
-            const SizedBox(height: 34),
-            PrimaryButton(
-              label: 'JUGAR OTRA VEZ',
-              icon: Icons.refresh_rounded,
-              onTap: widget.controller.playAgain,
-            ),
-            const SizedBox(height: 12),
-            SecondaryButton(
-              label: 'VOLVER AL INICIO',
-              color: Theme.of(context).colorScheme.primary,
-              icon: Icons.home_rounded,
-              onTap: widget.controller.goHome,
-            ),
-          ],
+          ),
         ),
-      ),
       IgnorePointer(
         child: ConfettiWidget(
           confettiController: confettiController,
@@ -1890,7 +2493,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
         ),
       ),
     ],
-  );
+    );
+  }
 }
 
 class StatCard extends StatelessWidget {
@@ -1908,13 +2512,11 @@ class StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveColor = _accentColor(context, color);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
-        color: effectiveColor.withValues(alpha: _isLight(context) ? .10 : .14),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: effectiveColor.withValues(alpha: _isLight(context) ? .18 : 0),
-        ),
+        color: _softSurface(context),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _softOutline(context)),
       ),
       child: Column(
         children: [
@@ -1922,13 +2524,19 @@ class StatCard extends StatelessWidget {
             value,
             style: TextStyle(
               color: effectiveColor,
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.8,
             ),
           ),
+          const SizedBox(height: 2),
           Text(
             context.tr(label),
-            style: TextStyle(color: _secondaryText(context), fontSize: 12),
+            style: TextStyle(
+              color: _secondaryText(context),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -2021,6 +2629,33 @@ class SettingsScreen extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 24),
+      Text(context.tr('PROGRESO Y CONTENIDO'), style: _sectionStyle(context)),
+      const SizedBox(height: 8),
+      StoreRecommendationTile(
+        emoji: '⚡',
+        title: '${context.tr('Mazos y logros')}  ·  ${controller.sparks} ⚡',
+        subtitle: context.tr(
+          'Desbloquea mazos con Chispas o vídeos bonificados',
+        ),
+        onTap: () => showRewardsAndPacksSheet(context, controller),
+      ),
+      const SizedBox(height: 10),
+      StoreRecommendationTile(
+        emoji: '✍️',
+        title:
+            '${context.tr('Mis tarjetas')} (${controller.customCards.length})',
+        subtitle: context.tr('Crea verdades y retos propios para tu grupo'),
+        onTap: () => showCustomCardsSheet(context, controller),
+      ),
+      const SizedBox(height: 10),
+      StoreRecommendationTile(
+        emoji: '❤️',
+        title:
+            '${context.tr('Favoritas')} (${controller.favoriteCards.length})',
+        subtitle: context.tr('Tus preguntas y retos guardados'),
+        onTap: () => showFavoritesSheet(context, controller),
+      ),
+      const SizedBox(height: 24),
       Text(context.tr('EXPERIENCIA'), style: _sectionStyle(context)),
       const SizedBox(height: 8),
       ListTile(
@@ -2044,8 +2679,10 @@ class SettingsScreen extends StatelessWidget {
           final permissionMessage = context.tr(
             'Activa el permiso de notificaciones para probarla',
           );
-          final sent = await NotificationService.instance
-              .showTestNotification();
+          final sent = await NotificationService.instance.showTestNotification(
+            languageCode: controller.languageCode,
+          );
+          if (!context.mounted) return;
           messenger.showSnackBar(
             SnackBar(content: Text(sent ? sentMessage : permissionMessage)),
           );
@@ -2190,7 +2827,10 @@ class StoreRecommendationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: _softSurface(context),
-    borderRadius: BorderRadius.circular(18),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+      side: BorderSide(color: _softOutline(context)),
+    ),
     clipBehavior: Clip.antiAlias,
     child: ListTile(
       minTileHeight: 68,
@@ -2236,14 +2876,19 @@ class AppHeader extends StatelessWidget {
     child: Row(
       children: [
         IconButton(
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            minimumSize: const Size(42, 42),
+            shape: CircleBorder(side: BorderSide(color: _softOutline(context))),
+          ),
           onPressed: () {
             AppAudio.play(AppSound.back);
             onBack();
           },
           tooltip: context.tr('Volver'),
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: const Icon(Icons.arrow_back_rounded, size: 20),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2252,12 +2897,18 @@ class AppHeader extends StatelessWidget {
                 context.tr(title),
                 style: const TextStyle(
                   fontSize: 25,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.7,
                 ),
               ),
+              const SizedBox(height: 2),
               Text(
                 context.tr(subtitle),
-                style: TextStyle(color: _secondaryText(context), fontSize: 14),
+                style: TextStyle(
+                  color: _secondaryText(context),
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
@@ -2284,27 +2935,26 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final background = Theme.of(context).colorScheme.secondary;
-    final foreground =
-        foregroundColor ?? Theme.of(context).colorScheme.onSecondary;
+    final light = _isLight(context);
+    final background = light ? ink : mist;
+    final foreground = foregroundColor ?? (light ? Colors.white : ink);
     return Pressable(
       onTap: onTap,
       sound: sound,
       child: AnimatedOpacity(
         duration: _duration(context, 160),
-        opacity: onTap == null ? .35 : 1,
+        opacity: onTap == null ? .32 : 1,
         child: Container(
-          height: 60,
+          height: 56,
           width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           decoration: BoxDecoration(
             color: background,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(999),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: foreground),
-              const SizedBox(width: 8),
               Flexible(
                 child: Text(
                   context.tr(label),
@@ -2312,10 +2962,21 @@ class PrimaryButton extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: foreground,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .6,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .7,
                   ),
                 ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: foreground.withValues(alpha: .12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: foreground, size: 17),
               ),
             ],
           ),
@@ -2342,7 +3003,6 @@ class SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = _accentColor(context, color);
     return Pressable(
       onTap: onTap,
       sound: sound,
@@ -2350,23 +3010,31 @@ class SecondaryButton extends StatelessWidget {
         height: 52,
         width: double.infinity,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: effectiveColor.withValues(
-            alpha: _isLight(context) ? .12 : .16,
+          borderRadius: BorderRadius.circular(999),
+          color: Colors.transparent,
+          border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .22),
+            width: 1.1,
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, color: effectiveColor, size: 20),
+              Icon(
+                icon,
+                color: Theme.of(context).colorScheme.onSurface,
+                size: 18,
+              ),
               const SizedBox(width: 8),
             ],
             Text(
-              label,
+              context.tr(label),
               style: TextStyle(
-                color: effectiveColor,
-                fontWeight: FontWeight.w900,
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: .5,
               ),
             ),
           ],
