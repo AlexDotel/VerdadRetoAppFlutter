@@ -361,39 +361,11 @@ class AppBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final light = Theme.of(context).brightness == Brightness.light;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: light
-              ? const [Color(0xFFFFFBFF), Color(0xFFF9F5FC), Color(0xFFF3ECF8)]
-              : const [Color(0xFF19131F), Color(0xFF141018), Color(0xFF100D13)],
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: const Alignment(0, -0.85),
-                    radius: 1.05,
-                    colors: [
-                      purple.withValues(alpha: light ? .06 : .11),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Material(
-            type: MaterialType.transparency,
-            child: SafeArea(child: child),
-          ),
-        ],
+    return ColoredBox(
+      color: light ? const Color(0xFFFAF8FC) : const Color(0xFF110D16),
+      child: Material(
+        type: MaterialType.transparency,
+        child: SafeArea(child: child),
       ),
     );
   }
@@ -405,14 +377,14 @@ bool _isLight(BuildContext context) =>
 Color _secondaryText(BuildContext context) =>
     Theme.of(context).colorScheme.onSurfaceVariant;
 
-Color _softSurface(BuildContext context, {double darkAlpha = .045}) =>
+Color _softSurface(BuildContext context, {double darkAlpha = .04}) =>
     _isLight(context)
-    ? Colors.white.withValues(alpha: .78)
+    ? Colors.white
     : Colors.white.withValues(alpha: darkAlpha);
 
-Color _softOutline(BuildContext context, {double darkAlpha = .085}) =>
+Color _softOutline(BuildContext context, {double darkAlpha = .10}) =>
     _isLight(context)
-    ? Theme.of(context).colorScheme.outline.withValues(alpha: .52)
+    ? Theme.of(context).colorScheme.outline.withValues(alpha: .42)
     : Colors.white.withValues(alpha: darkAlpha);
 
 Color _accentColor(BuildContext context, Color color) {
@@ -624,17 +596,14 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final controlStyle = IconButton.styleFrom(
-      backgroundColor: _softSurface(context, darkAlpha: .06),
+      backgroundColor: Colors.transparent,
       foregroundColor: scheme.onSurface,
-      minimumSize: const Size(44, 44),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: _softOutline(context)),
-      ),
+      minimumSize: const Size(42, 42),
+      shape: CircleBorder(side: BorderSide(color: _softOutline(context))),
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(26, 18, 26, 28),
+      padding: const EdgeInsets.fromLTRB(26, 16, 26, 28),
       child: Column(
         children: [
           Row(
@@ -643,12 +612,11 @@ class WelcomeScreen extends StatelessWidget {
                 onTap: () => showRewardsAndPacksSheet(context, controller),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
+                    horizontal: 14,
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: _softSurface(context, darkAlpha: .06),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(999),
                     border: Border.all(color: _softOutline(context)),
                   ),
                   child: Row(
@@ -657,17 +625,25 @@ class WelcomeScreen extends StatelessWidget {
                       Text(
                         '⚡ ${controller.sparks}',
                         style: TextStyle(
-                          color: _accentColor(context, purple),
+                          color: scheme.onSurface,
                           fontWeight: FontWeight.w800,
-                          fontSize: 13,
+                          fontSize: 12.5,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      Container(
+                        width: 3,
+                        height: 3,
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: _secondaryText(context),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
                       Text(
                         context.tr(controller.rankTitle),
                         style: TextStyle(
                           color: _secondaryText(context),
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           fontSize: 12.5,
                         ),
                       ),
@@ -689,10 +665,10 @@ class WelcomeScreen extends StatelessWidget {
                   lightMode
                       ? Icons.dark_mode_outlined
                       : Icons.light_mode_outlined,
-                  size: 20,
+                  size: 19,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               IconButton(
                 style: controlStyle,
                 onPressed: () {
@@ -700,7 +676,7 @@ class WelcomeScreen extends StatelessWidget {
                   controller.showSettings();
                 },
                 tooltip: context.tr('Configuración'),
-                icon: const Icon(Icons.tune_rounded, size: 20),
+                icon: const Icon(Icons.tune_rounded, size: 19),
               ),
             ],
           ),
@@ -709,19 +685,9 @@ class WelcomeScreen extends StatelessWidget {
             context,
             delay: 20,
             child: Center(
-              child: Container(
-                width: 184,
-                height: 184,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      coral.withValues(alpha: _isLight(context) ? .09 : .12),
-                      purple.withValues(alpha: _isLight(context) ? .04 : .06),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
+              child: SizedBox(
+                width: 128,
+                height: 128,
                 child: Image.asset(
                   'assets/branding/verdad-o-reto-logo-transparent.png',
                   key: const ValueKey('brand-logo'),
@@ -731,7 +697,7 @@ class WelcomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
           _welcomeEntrance(
             context,
             delay: 70,
@@ -742,13 +708,36 @@ class WelcomeScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: scheme.onSurface,
-                    fontSize: 36,
-                    height: 1.05,
+                    fontSize: 40,
+                    height: 1.0,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: -1.1,
+                    letterSpacing: -1.6,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 2.5,
+                      decoration: BoxDecoration(
+                        color: coral,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      width: 22,
+                      height: 2.5,
+                      decoration: BoxDecoration(
+                        color: purple,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 Text(
                   context.tr(
                     'Las mejores historias empiezan\ncon una pregunta.',
@@ -756,9 +745,9 @@ class WelcomeScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: _secondaryText(context),
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w500,
-                    height: 1.45,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
                   ),
                 ),
               ],
@@ -894,21 +883,25 @@ class _PlayersScreenState extends State<PlayersScreen> {
                 decoration: InputDecoration(
                   counterText: '',
                   hintText: context.tr('Nombre del jugador'),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
                   filled: true,
                   fillColor: _softSurface(context),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(999),
                     borderSide: BorderSide(color: _softOutline(context)),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(999),
                     borderSide: BorderSide(color: _softOutline(context)),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(999),
                     borderSide: BorderSide(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 2,
+                      color: Theme.of(context).colorScheme.onSurface,
+                      width: 1.4,
                     ),
                   ),
                 ),
@@ -918,16 +911,16 @@ class _PlayersScreenState extends State<PlayersScreen> {
             Pressable(
               onTap: addPlayer,
               child: Container(
-                width: 54,
-                height: 54,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(16),
+                  color: Theme.of(context).colorScheme.onSurface,
+                  shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.add_rounded,
-                  size: 26,
-                  color: Theme.of(context).colorScheme.onPrimary,
+                  size: 24,
+                  color: Theme.of(context).colorScheme.surface,
                 ),
               ),
             ),
@@ -1611,31 +1604,32 @@ class SelectCard extends StatelessWidget {
         child: AnimatedContainer(
           duration: _duration(context, 180),
           curve: snappy,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           decoration: BoxDecoration(
             color: selected
-                ? activeColor.withValues(alpha: _isLight(context) ? .09 : .15)
-                : _softSurface(context),
-            borderRadius: BorderRadius.circular(18),
+                ? _softSurface(context, darkAlpha: .08)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected ? activeColor : _softOutline(context),
-              width: selected ? 1.6 : 1,
+              color: selected
+                  ? Theme.of(context).colorScheme.onSurface.withValues(alpha: .42)
+                  : _softOutline(context),
+              width: selected ? 1.3 : .9,
             ),
           ),
           child: Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
+              AnimatedContainer(
+                duration: _duration(context, 160),
+                width: 3.5,
+                height: selected ? 26 : 12,
                 decoration: BoxDecoration(
-                  color: selected
-                      ? activeColor.withValues(alpha: .14)
-                      : _softSurface(context, darkAlpha: .05),
-                  borderRadius: BorderRadius.circular(13),
+                  color: selected ? activeColor : _softOutline(context),
+                  borderRadius: BorderRadius.circular(999),
                 ),
-                alignment: Alignment.center,
-                child: Text(emoji, style: const TextStyle(fontSize: 22)),
               ),
+              const SizedBox(width: 14),
+              Text(emoji, style: const TextStyle(fontSize: 22)),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -1646,7 +1640,7 @@ class SelectCard extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
-                        letterSpacing: -.2,
+                        letterSpacing: -.3,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -1660,27 +1654,12 @@ class SelectCard extends StatelessWidget {
                   ],
                 ),
               ),
-              AnimatedContainer(
-                duration: _duration(context, 160),
-                width: 18,
-                height: 18,
-                padding: const EdgeInsets.all(3.5),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: selected
-                        ? activeColor
-                        : _secondaryText(context).withValues(alpha: .6),
-                    width: 1.8,
-                  ),
+              if (selected)
+                Icon(
+                  Icons.check_rounded,
+                  size: 18,
+                  color: activeColor,
                 ),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: selected ? activeColor : Colors.transparent,
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -1984,58 +1963,44 @@ class ChooseCardType extends StatelessWidget {
         child: choices,
       );
     }
-    return Container(
-      constraints: const BoxConstraints(minHeight: 244),
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-      decoration: BoxDecoration(
-        color: _softSurface(context),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: _softOutline(context)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            context.tr('ELIGE UNA OPCIÓN'),
-            style: TextStyle(
-              color: _secondaryText(context),
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.5,
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          context.tr('ELIGE UNA OPCIÓN'),
+          style: _sectionStyle(context),
+        ),
+        const SizedBox(height: 18),
+        choices,
+        const SizedBox(height: 18),
+        Pressable(
+          onTap: onRandom,
+          sound: AppSound.select,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: _softOutline(context)),
             ),
-          ),
-          const SizedBox(height: 16),
-          choices,
-          const SizedBox(height: 14),
-          Pressable(
-            onTap: onRandom,
-            sound: AppSound.select,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: _softSurface(context, darkAlpha: .07),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: _softOutline(context)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🎲', style: TextStyle(fontSize: 14)),
-                  const SizedBox(width: 7),
-                  Text(
-                    context.tr('Al azar'),
-                    style: TextStyle(
-                      color: _secondaryText(context),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('🎲', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 8),
+                Text(
+                  context.tr('Al azar'),
+                  style: TextStyle(
+                    color: _secondaryText(context),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: .2,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -2053,68 +2018,47 @@ class ChallengeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = card.type == CardType.verdad
-        ? truthCardColors
-        : dareCardColors;
+    final isTruth = card.type == CardType.verdad;
+    final accent = isTruth ? coral : purple;
+    final light = _isLight(context);
+    final scheme = Theme.of(context).colorScheme;
     final timerSeconds = detectCardTimerSeconds(card.text);
     return Container(
-      constraints: const BoxConstraints(minHeight: 256),
+      constraints: const BoxConstraints(minHeight: 280),
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(26, 22, 26, 26),
+      padding: const EdgeInsets.fromLTRB(26, 18, 26, 28),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
+        color: light ? Colors.white : const Color(0xFF1A1422),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: accent.withValues(alpha: light ? .48 : .52),
+          width: 1.5,
         ),
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: colors.first.withValues(alpha: .28),
-            blurRadius: 28,
-            offset: const Offset(0, 14),
-          ),
-        ],
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-              const SizedBox(width: 40),
-              Expanded(
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .16),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          card.type.emoji,
-                          style: const TextStyle(fontSize: 15),
-                        ),
-                        const SizedBox(width: 7),
-                        Text(
-                          context.tr(card.type.title),
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 2.2,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+              Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
                 ),
               ),
+              const SizedBox(width: 9),
+              Text(
+                context.tr(card.type.title),
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2.0,
+                  color: accent,
+                ),
+              ),
+              const Spacer(),
               IconButton(
                 onPressed: () {
                   AppAudio.play(AppSound.tap);
@@ -2127,31 +2071,35 @@ class ChallengeCard extends StatelessWidget {
                   isFavorite
                       ? Icons.favorite_rounded
                       : Icons.favorite_border_rounded,
-                  color: Colors.white.withValues(alpha: isFavorite ? 1 : .78),
-                  size: 22,
+                  color: isFavorite ? coral : _secondaryText(context),
+                  size: 21,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 18),
-          Text(
-            card.text,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              height: 1.38,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -.3,
+          Divider(height: 1, color: _softOutline(context)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 26),
+            child: Text(
+              card.text,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: scheme.onSurface,
+                fontSize: 23.5,
+                height: 1.4,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -.45,
+              ),
             ),
           ),
-          if (timerSeconds != null) ...[
-            const SizedBox(height: 18),
+          if (timerSeconds != null)
             CardTimerPill(
               key: ValueKey('timer-${card.text}'),
               seconds: timerSeconds,
-            ),
-          ],
+              accentColor: accent,
+            )
+          else
+            const SizedBox(height: 4),
         ],
       ),
     );
@@ -2169,38 +2117,28 @@ class PlayerTurnIdentity extends StatelessWidget {
   final int turn;
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.center,
     mainAxisSize: MainAxisSize.min,
     children: [
       Text(
         _faceForTurn(player, turn),
         semanticsLabel: context.tr('Carita del jugador'),
-        style: const TextStyle(fontSize: 44, height: 1),
+        style: const TextStyle(fontSize: 30, height: 1),
       ),
-      const SizedBox(height: 9),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+      const SizedBox(width: 12),
+      Flexible(
         child: Text(
           player,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurface,
-            fontSize: 32,
+            fontSize: 34,
             height: 1.05,
             fontWeight: FontWeight.w800,
-            letterSpacing: -.9,
+            letterSpacing: -1.1,
           ),
-        ),
-      ),
-      const SizedBox(height: 10),
-      Container(
-        width: 28,
-        height: 3,
-        decoration: BoxDecoration(
-          color: _accentColor(context, purple).withValues(alpha: .45),
-          borderRadius: BorderRadius.circular(999),
         ),
       ),
     ],
@@ -2229,19 +2167,12 @@ class FloatingGameAction extends StatelessWidget {
         height: 46,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(15),
+          shape: BoxShape.circle,
           border: Border.all(color: _softOutline(context)),
-          boxShadow: [
-            BoxShadow(
-              color: ink.withValues(alpha: _isLight(context) ? .08 : .26),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
         ),
         child: Icon(
           icon,
-          size: 22,
+          size: 20,
           color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
@@ -2273,49 +2204,73 @@ class GameChoiceButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content =
-        Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+    final accent = colors.first;
+    final light = _isLight(context);
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        height: 158,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: light
+              ? Colors.white
+              : accent.withValues(alpha: .13),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(
+            color: accent.withValues(alpha: light ? .48 : .45),
+            width: 1.4,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(icon, color: Colors.white, size: 30),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: .5,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: .78),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: light ? .12 : .22),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: accent, size: 19),
+                ),
+                Icon(
+                  Icons.north_east_rounded,
+                  size: 16,
+                  color: accent.withValues(alpha: .65),
                 ),
               ],
-            )
-            .padding(horizontal: 14, vertical: 15)
-            .decorated(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: colors,
-              ),
-              borderRadius: BorderRadius.circular(24),
-            )
-            .height(116);
-    return Pressable(onTap: onTap, child: content);
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.3,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: _secondaryText(context),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -2558,13 +2513,11 @@ class StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveColor = _accentColor(context, color);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
-        color: effectiveColor.withValues(alpha: _isLight(context) ? .10 : .14),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: effectiveColor.withValues(alpha: _isLight(context) ? .18 : 0),
-        ),
+        color: _softSurface(context),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _softOutline(context)),
       ),
       child: Column(
         children: [
@@ -2572,13 +2525,19 @@ class StatCard extends StatelessWidget {
             value,
             style: TextStyle(
               color: effectiveColor,
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.8,
             ),
           ),
+          const SizedBox(height: 2),
           Text(
             context.tr(label),
-            style: TextStyle(color: _secondaryText(context), fontSize: 12),
+            style: TextStyle(
+              color: _secondaryText(context),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -2919,12 +2878,9 @@ class AppHeader extends StatelessWidget {
       children: [
         IconButton(
           style: IconButton.styleFrom(
-            backgroundColor: _softSurface(context),
+            backgroundColor: Colors.transparent,
             minimumSize: const Size(42, 42),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(13),
-              side: BorderSide(color: _softOutline(context)),
-            ),
+            shape: CircleBorder(side: BorderSide(color: _softOutline(context))),
           ),
           onPressed: () {
             AppAudio.play(AppSound.back);
@@ -2980,36 +2936,26 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final background = Theme.of(context).colorScheme.secondary;
-    final foreground =
-        foregroundColor ?? Theme.of(context).colorScheme.onSecondary;
+    final light = _isLight(context);
+    final background = light ? ink : mist;
+    final foreground = foregroundColor ?? (light ? Colors.white : ink);
     return Pressable(
       onTap: onTap,
       sound: sound,
       child: AnimatedOpacity(
         duration: _duration(context, 160),
-        opacity: onTap == null ? .35 : 1,
+        opacity: onTap == null ? .32 : 1,
         child: Container(
           height: 56,
           width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           decoration: BoxDecoration(
             color: background,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: onTap == null
-                ? null
-                : [
-                    BoxShadow(
-                      color: background.withValues(alpha: .28),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+            borderRadius: BorderRadius.circular(999),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: foreground, size: 20),
-              const SizedBox(width: 8),
               Flexible(
                 child: Text(
                   context.tr(label),
@@ -3017,11 +2963,21 @@ class PrimaryButton extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: foreground,
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: .5,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .7,
                   ),
                 ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: foreground.withValues(alpha: .12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: foreground, size: 17),
               ),
             ],
           ),
@@ -3056,28 +3012,31 @@ class SecondaryButton extends StatelessWidget {
         height: 52,
         width: double.infinity,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: effectiveColor.withValues(
-            alpha: _isLight(context) ? .08 : .12,
-          ),
+          borderRadius: BorderRadius.circular(999),
+          color: Colors.transparent,
           border: Border.all(
-            color: effectiveColor.withValues(alpha: .22),
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .22),
+            width: 1.1,
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, color: effectiveColor, size: 19),
+              Icon(
+                icon,
+                color: Theme.of(context).colorScheme.onSurface,
+                size: 18,
+              ),
               const SizedBox(width: 8),
             ],
             Text(
               context.tr(label),
               style: TextStyle(
-                color: effectiveColor,
-                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w700,
-                letterSpacing: .4,
+                letterSpacing: .5,
               ),
             ),
           ],

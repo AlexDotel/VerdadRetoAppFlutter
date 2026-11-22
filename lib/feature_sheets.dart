@@ -734,8 +734,9 @@ class _FavoritesSheetContent extends StatelessWidget {
 }
 
 class CardTimerPill extends StatefulWidget {
-  const CardTimerPill({required this.seconds, super.key});
+  const CardTimerPill({required this.seconds, this.accentColor, super.key});
   final int seconds;
+  final Color? accentColor;
 
   @override
   State<CardTimerPill> createState() => _CardTimerPillState();
@@ -799,6 +800,7 @@ class _CardTimerPillState extends State<CardTimerPill> {
   @override
   Widget build(BuildContext context) {
     final finished = _remaining == 0;
+    final accent = widget.accentColor ?? Colors.white;
     final label = finished
         ? context.tr('¡Tiempo!')
         : _running
@@ -808,14 +810,14 @@ class _CardTimerPillState extends State<CardTimerPill> {
       onTap: _toggle,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         decoration: BoxDecoration(
           color: finished
-              ? Colors.white.withValues(alpha: .28)
-              : Colors.white.withValues(alpha: _running ? .22 : .14),
+              ? accent.withValues(alpha: .22)
+              : accent.withValues(alpha: _running ? .18 : .10),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: Colors.white.withValues(alpha: _running ? .45 : .22),
+            color: accent.withValues(alpha: _running ? .65 : .32),
           ),
         ),
         child: Row(
@@ -828,13 +830,13 @@ class _CardTimerPillState extends State<CardTimerPill> {
                   ? Icons.pause_rounded
                   : Icons.timer_outlined,
               size: 16,
-              color: Colors.white,
+              color: accent,
             ),
             const SizedBox(width: 6),
             Text(
               label,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: accent,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
