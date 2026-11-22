@@ -29,39 +29,42 @@ class AdService {
     if (_initialized || _initializing) return;
     _initializing = true;
     _sessionStartedAt = DateTime.now();
-    try {
-      Appodeal.setTesting(testing);
-      Appodeal.setLogLevel(
-        testing ? Appodeal.LogLevelVerbose : Appodeal.LogLevelNone,
-      );
-      Appodeal.setChildDirectedTreatment(false);
-      Appodeal.setAutoCache(AppodealAdType.Interstitial, true);
-      Appodeal.muteVideosIfCallsMuted(true);
-      Appodeal.setInterstitialCallbacks(
-        onInterstitialShown: () {
-          _lastShownAt = DateTime.now();
-          _firstRoundAdShown = true;
-        },
-        onInterstitialShowFailed: _finishShowing,
-        onInterstitialClosed: _finishShowing,
-        onInterstitialExpired: _finishShowing,
-      );
+    runZonedGuarded(
+      () {
+        Appodeal.setTesting(testing);
+        Appodeal.setLogLevel(
+          testing ? Appodeal.LogLevelVerbose : Appodeal.LogLevelNone,
+        );
+        Appodeal.setChildDirectedTreatment(false);
+        Appodeal.setAutoCache(AppodealAdType.Interstitial, true);
+        Appodeal.muteVideosIfCallsMuted(true);
+        Appodeal.setInterstitialCallbacks(
+          onInterstitialShown: () {
+            _lastShownAt = DateTime.now();
+            _firstRoundAdShown = true;
+          },
+          onInterstitialShowFailed: _finishShowing,
+          onInterstitialClosed: _finishShowing,
+          onInterstitialExpired: _finishShowing,
+        );
 
-      Appodeal.initialize(
-        appKey: appKey,
-        adTypes: const [AppodealAdType.Interstitial],
-        onInitializationFinished: (errors) {
-          _initialized = true;
-          _initializing = false;
-          if (errors != null && errors.isNotEmpty) {
-            debugPrint('Appodeal initialization: $errors');
-          }
-        },
-      );
-    } catch (error) {
-      debugPrint('Appodeal unavailable: $error');
-      _initializing = false;
-    }
+        Appodeal.initialize(
+          appKey: appKey,
+          adTypes: const [AppodealAdType.Interstitial],
+          onInitializationFinished: (errors) {
+            _initialized = true;
+            _initializing = false;
+            if (errors != null && errors.isNotEmpty) {
+              debugPrint('Appodeal initialization: $errors');
+            }
+          },
+        );
+      },
+      (error, _) {
+        debugPrint('Appodeal unavailable: $error');
+        _initializing = false;
+      },
+    );
   }
 
   Future<bool> canShowAfterTurn(

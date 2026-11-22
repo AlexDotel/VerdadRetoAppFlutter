@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:confetti/confetti.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter/material.dart';
@@ -85,6 +87,11 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
     setState(() => language = value);
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString('language', value);
+    final resolved =
+        value == 'es' || value == 'en' ? value : deviceLanguageCode();
+    unawaited(
+      NotificationService.instance.scheduleReminders(languageCode: resolved),
+    );
   }
 
   Future<void> _openStore(
@@ -124,7 +131,9 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
       await NotificationService.instance.requestPermission();
       await preferences.setBool(preferenceKey, true);
     }
-    await NotificationService.instance.scheduleReminders();
+    await NotificationService.instance.scheduleReminders(
+      languageCode: controller.languageCode,
+    );
   }
 
   Future<void> _handleBack(BuildContext dialogContext) async {
@@ -183,12 +192,6 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
 
   @override
   Widget build(BuildContext context) {
-    debugPaintBaselinesEnabled = false;
-    debugPaintSizeEnabled = false;
-    debugPaintLayerBordersEnabled = false;
-    debugPaintPointersEnabled = false;
-    debugRepaintRainbowEnabled = false;
-    debugRepaintTextRainbowEnabled = false;
     final selectedLocale = switch (language) {
       'es' => const Locale('es'),
       'en' => const Locale('en'),
@@ -262,8 +265,10 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
           onPopInvokedWithResult: (didPop, _) {
             if (!didPop) _handleBack(homeContext);
           },
-          child: AppBackground(
-            child: AnimatedSwitcher(
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: AppBackground(
+              child: AnimatedSwitcher(
               duration: _duration(context, 180),
               reverseDuration: _duration(context, 100),
               switchInCurve: snappy,
@@ -318,6 +323,7 @@ class _TruthOrDareAppState extends State<TruthOrDareApp> {
                       _openStore('nuviapptest.co.impostor', launchFirst: true),
                 ),
               },
+              ),
             ),
           ),
         ),
@@ -892,11 +898,21 @@ class _PlayersScreenState extends State<PlayersScreen> {
         if (widget.controller.activePlayers.length < 2)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: Text(
-              context.isEnglish
-                  ? 'You need ${2 - widget.controller.activePlayers.length} more active player'
-                  : 'Necesitas ${2 - widget.controller.activePlayers.length} jugador más activo',
-              style: TextStyle(color: _accentColor(context, gold)),
+            child: Builder(
+              builder: (context) {
+                final missing = 2 - widget.controller.activePlayers.length;
+                final message = context.isEnglish
+                    ? (missing == 1
+                        ? 'You need 1 more active player'
+                        : 'You need $missing more active players')
+                    : (missing == 1
+                        ? 'Necesitas 1 jugador activo más'
+                        : 'Necesitas $missing jugadores activos más');
+                return Text(
+                  message,
+                  style: TextStyle(color: _accentColor(context, gold)),
+                );
+              },
             ),
           ),
         PrimaryButton(
@@ -1357,9 +1373,7 @@ class GameScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final card = controller.currentCard;
-    return MediaQuery(
-      data: MediaQuery.of(context).copyWith(disableAnimations: true),
-      child: Stack(
+    return Stack(
         children: [
           Column(
             children: [
@@ -1382,7 +1396,9 @@ class GameScreen extends StatelessWidget {
                         controller.paused ? 'Reanudar' : 'Pausar',
                       ),
                       icon: Icon(
-                        Icons.pause_rounded,
+                        controller.paused
+                            ? Icons.play_arrow_rounded
+                            : Icons.pause_rounded,
                         color: _secondaryText(context),
                       ),
                     ),
@@ -1441,22 +1457,26 @@ class GameScreen extends StatelessWidget {
           if (controller.paused)
             Positioned.fill(
               child: ColoredBox(
-                color: ink.withValues(alpha: .96),
+                color: Theme.of(
+                  context,
+                ).colorScheme.surface.withValues(alpha: .96),
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.all(32),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.pause_circle_outline_rounded,
                           size: 64,
-                          color: gold,
+                          color: _accentColor(context, gold),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           context.tr('Partida en pausa'),
+                          textAlign: TextAlign.center,
                           style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontSize: 28,
                             fontWeight: FontWeight.w900,
                           ),
@@ -1473,7 +1493,39 @@ class GameScreen extends StatelessWidget {
                 ),
               ),
             ),
-          if (!controller.paused)
+          if (controller.adBreakVisible)
+            Positioned.fill(
+              child: ColoredBox(
+                color: Theme.of(
+                  context,
+                ).colorScheme.surface.withValues(alpha: .96),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          context.tr('PUBLICIDAD'),
+                          style: _sectionStyle(context),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          context.tr('La partida continúa en un momento'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (!controller.paused && !controller.adBreakVisible)
             Positioned(
               right: 22,
               bottom: 18,
@@ -1497,8 +1549,7 @@ class GameScreen extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
+      );
   }
 }
 
@@ -2044,8 +2095,10 @@ class SettingsScreen extends StatelessWidget {
           final permissionMessage = context.tr(
             'Activa el permiso de notificaciones para probarla',
           );
-          final sent = await NotificationService.instance
-              .showTestNotification();
+          final sent = await NotificationService.instance.showTestNotification(
+            languageCode: controller.languageCode,
+          );
+          if (!context.mounted) return;
           messenger.showSnackBar(
             SnackBar(content: Text(sent ? sentMessage : permissionMessage)),
           );
@@ -2363,7 +2416,7 @@ class SecondaryButton extends StatelessWidget {
               const SizedBox(width: 8),
             ],
             Text(
-              label,
+              context.tr(label),
               style: TextStyle(
                 color: effectiveColor,
                 fontWeight: FontWeight.w900,

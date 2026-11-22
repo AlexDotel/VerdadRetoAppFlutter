@@ -61,7 +61,39 @@ class GameController extends ChangeNotifier {
   Set<String> _history = {};
   AppPage _pageBeforeSettings = AppPage.welcome;
   bool _advancingTurn = false;
-  String languageCode = 'es';
+  String _languageCode = 'es';
+
+  String get languageCode => _languageCode;
+  set languageCode(String value) {
+    if (_languageCode == value) return;
+    _languageCode = value;
+    _deck = [];
+  }
+
+  static final _contactPattern = RegExp(
+    r'\b(besa\w*|beso\w*|toca\w*|toque\w*|abrazo\w*|abraz\w*|masaje\w*|acarici\w*|lame\w*|chupa\w*|mord\w*|azot\w*|kiss\w*|touch\w*|hug\w*|massage\w*|cuddle\w*|lick\w*)\b',
+    caseSensitive: false,
+  );
+  static final _adultPattern = RegExp(
+    r'\b(sexo|sexual\w*|desnud\w*|foll\w*|orgasm\w*|íntim\w*|erótic\w*|erógen\w*|masturb\w*|porno\w*|fetiche\w*|striptease|oral\w*|penetr\w*|corrert\w*|corrido\w*|trío\w*|nudes|sex|sexual\w*|naked|orgasm\w*|intimate|erotic\w*|strip\w*|foreplay|lingerie|kink\w*)\b',
+    caseSensitive: false,
+  );
+  static final _alcoholPattern = RegExp(
+    r'\b(alcohol\w*|bebid\w*|borrach\w*|chupito\w*|copa\w*|cerveza\w*|vino|tequila|drink\w*|drunk|shots?|alcohol\w*|tipsy|booze)\b',
+    caseSensitive: false,
+  );
+  static final _socialPattern = RegExp(
+    r'\b(mensaje\w*|whatsapp|instagram|tiktok|chat|chatear|estado|publica\w*|foto de perfil|historia de|redes sociales|dm|text\w*|message\w*|post\w*|profile picture|social media|story)\b',
+    caseSensitive: false,
+  );
+  static final _personalPattern = RegExp(
+    r'\b(secreto\w*|vulnerable\w*|mentira\w*|confiesa\w*|inseguridad\w*|arrepent\w*|secret\w*|vulnerable|lies?|lied|lying|confess\w*|insecurity|regret\w*)\b',
+    caseSensitive: false,
+  );
+  static final _publicPattern = RegExp(
+    r'\b(en público|en la calle|bar|bares|baño público|discoteca|local|coche|vecino\w*|in public|public place|street|nightclub|restroom|bathroom|car|stranger\w*)\b',
+    caseSensitive: false,
+  );
 
   List<String> get activePlayers =>
       players.where((name) => !inactivePlayers.contains(name)).toList();
@@ -78,6 +110,7 @@ class GameController extends ChangeNotifier {
     soundEnabled = prefs.getBool('sound') ?? false;
     AppAudio.enabled = soundEnabled;
     hapticsEnabled = prefs.getBool('haptics') ?? true;
+    AppAudio.hapticsEnabled = hapticsEnabled;
     animationsEnabled = prefs.getBool('animations') ?? true;
     textScale = prefs.getDouble('textScale') ?? 1;
     maxRounds = prefs.getInt('maxRounds') ?? 20;
@@ -122,6 +155,7 @@ class GameController extends ChangeNotifier {
   void closeSettings() => _setPage(_pageBeforeSettings);
 
   void back() {
+    if (page == AppPage.playing) paused = false;
     page = switch (page) {
       AppPage.players => AppPage.welcome,
       AppPage.modeSetup => AppPage.players,
@@ -136,21 +170,27 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
+  String _normalizePlayerName(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '';
+    return trimmed.substring(0, min(trimmed.length, 18)).trim();
+  }
+
   bool addPlayer(String value) {
-    final name = value.trim();
+    final name = _normalizePlayerName(value);
     if (name.isEmpty ||
         players.length >= 12 ||
         players.any((p) => p.toLowerCase() == name.toLowerCase())) {
       return false;
     }
-    players = [...players, name.substring(0, min(name.length, 18))];
+    players = [...players, name];
     _save();
     notifyListeners();
     return true;
   }
 
   void editPlayer(String oldName, String value) {
-    final name = value.trim();
+    final name = _normalizePlayerName(value);
     if (name.isEmpty ||
         players.any(
           (p) => p != oldName && p.toLowerCase() == name.toLowerCase(),
@@ -159,13 +199,19 @@ class GameController extends ChangeNotifier {
     }
     final index = players.indexOf(oldName);
     if (index < 0) return;
-    players = [...players]..[index] = name.substring(0, min(name.length, 18));
-    if (inactivePlayers.remove(oldName)) inactivePlayers.add(players[index]);
+    players = [...players]..[index] = name;
+    if (inactivePlayers.remove(oldName)) inactivePlayers.add(name);
     _save();
     notifyListeners();
   }
 
   void reorderPlayer(int oldIndex, int newIndex) {
+    if (oldIndex < 0 ||
+        oldIndex >= players.length ||
+        newIndex < 0 ||
+        newIndex >= players.length) {
+      return;
+    }
     final updated = [...players];
     final player = updated.removeAt(oldIndex);
     updated.insert(newIndex, player);
@@ -231,15 +277,29 @@ class GameController extends ChangeNotifier {
 
   void startGame() {
     AdService.instance.startGameSession();
+    paused = false;
+    adBreakVisible = false;
     _deck = _buildFilteredDeck();
     turn = 0;
     truthsCompleted = 0;
     daresCompleted = 0;
     skippedCards = 0;
     _lastPlayerIndex = -1;
+    currentCard = null;
     previousCard = null;
     page = AppPage.playing;
     nextTurn();
+  }
+
+  @visibleForTesting
+  bool allowsCardText(String text) {
+    if (!contactAllowed && _contactPattern.hasMatch(text)) return false;
+    if (!adultAllowed && _adultPattern.hasMatch(text)) return false;
+    if (!alcoholAllowed && _alcoholPattern.hasMatch(text)) return false;
+    if (!socialAllowed && _socialPattern.hasMatch(text)) return false;
+    if (!personalAllowed && _personalPattern.hasMatch(text)) return false;
+    if (!publicAllowed && _publicPattern.hasMatch(text)) return false;
+    return true;
   }
 
   List<GameCard> _buildFilteredDeck() {
@@ -250,95 +310,26 @@ class GameController extends ChangeNotifier {
         : [intensity];
     final cards = intensities
         .expand(
-          (value) => buildDeck(mode, value, english: languageCode == 'en'),
+          (value) => buildDeck(mode, value, english: _languageCode == 'en'),
         )
-        .where((card) {
-          final text = card.text.toLowerCase();
-          if (!contactAllowed &&
-              _has(text, [
-                'besa',
-                'toca',
-                'abrazo',
-                'masaje',
-                'kiss',
-                'touch',
-                'hug',
-                'massage',
-              ])) {
-            return false;
-          }
-          if (!adultAllowed &&
-              _has(text, [
-                'sexo',
-                'sexual',
-                'desnud',
-                'folla',
-                'orgasmo',
-                'íntim',
-                'sex',
-                'naked',
-                'orgasm',
-                'intimate',
-              ])) {
-            return false;
-          }
-          if (!alcoholAllowed &&
-              _has(text, [
-                'alcohol',
-                'bebid',
-                'borrach',
-                'chupito',
-                'drink',
-                'drunk',
-                'shot',
-              ])) {
-            return false;
-          }
-          if (!socialAllowed &&
-              _has(text, [
-                'mensaje',
-                'chat',
-                'estado',
-                'publica',
-                'foto de perfil',
-                'message',
-                'chat',
-                'post',
-                'profile picture',
-              ])) {
-            return false;
-          }
-          if (!personalAllowed &&
-              _has(text, [
-                'secreto',
-                'vulnerable',
-                'mentira',
-                'confiesa',
-                'secret',
-                'lie',
-                'confess',
-              ])) {
-            return false;
-          }
-          if (!publicAllowed &&
-              _has(text, [
-                'en público',
-                'bar',
-                'baño',
-                'coche',
-                'in public',
-                'bathroom',
-                'car',
-              ])) {
-            return false;
-          }
-          return true;
-        })
+        .where((card) => allowsCardText(card.text))
         .toList();
     return cards..shuffle(_random);
   }
 
-  bool _has(String text, List<String> terms) => terms.any(text.contains);
+  List<GameCard> _fallbackCardsFor(CardType type) {
+    final fallbackMode = mode == GameMode.familia ? GameMode.familia : mode;
+    final mildDeck = buildDeck(
+      fallbackMode,
+      Intensity.suave,
+      english: _languageCode == 'en',
+    ).where((card) => card.type == type).toList();
+    final filteredMild = mildDeck
+        .where((card) => allowsCardText(card.text))
+        .toList();
+    if (filteredMild.isNotEmpty) return filteredMild..shuffle(_random);
+    return mildDeck..shuffle(_random);
+  }
 
   void chooseCard(CardType type) => _draw(type, skipped: false);
 
@@ -350,13 +341,28 @@ class GameController extends ChangeNotifier {
   }
 
   void _draw(CardType type, {required bool skipped}) {
-    if (_deck.isEmpty) _deck = _buildFilteredDeck();
+    if (!_deck.any((card) => card.type == type)) {
+      final rebuilt = _buildFilteredDeck()
+          .where((card) => card.type == type)
+          .toList();
+      _deck.addAll(rebuilt.isNotEmpty ? rebuilt : _fallbackCardsFor(type));
+    }
     var candidates = _deck
-        .where((card) => card.type == type && !_history.contains(card.text))
+        .where(
+          (card) =>
+              card.type == type &&
+              !_history.contains(card.text) &&
+              card.text != currentCard?.text,
+        )
         .toList();
-    candidates = candidates.isEmpty
-        ? _deck.where((card) => card.type == type).toList()
-        : candidates;
+    if (candidates.isEmpty) {
+      candidates = _deck
+          .where((card) => card.type == type && card.text != currentCard?.text)
+          .toList();
+    }
+    if (candidates.isEmpty) {
+      candidates = _deck.where((card) => card.type == type).toList();
+    }
     if (candidates.isEmpty) return;
     previousCard = skipped ? currentCard : null;
     currentCard = candidates[_random.nextInt(candidates.length)];
@@ -375,21 +381,24 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> nextTurn() async {
+  Future<void> nextTurn({bool completed = true}) async {
     if (_advancingTurn) return;
     _advancingTurn = true;
     try {
-      if (currentCard?.type == CardType.verdad) truthsCompleted++;
-      if (currentCard?.type == CardType.reto) daresCompleted++;
-      if (reachedRoundLimit && turn > 0) {
-        finishGame();
-        return;
+      if (completed) {
+        if (currentCard?.type == CardType.verdad) truthsCompleted++;
+        if (currentCard?.type == CardType.reto) daresCompleted++;
+        if (reachedRoundLimit && turn > 0) {
+          finishGame();
+          return;
+        }
       }
       currentCard = null;
       previousCard = null;
       final available = activePlayers;
       if (available.length < 2) return;
-      if (await AdService.instance.canShowAfterTurn(turn, available.length)) {
+      if (completed &&
+          await AdService.instance.canShowAfterTurn(turn, available.length)) {
         adBreakVisible = true;
         notifyListeners();
         await Future<void>.delayed(const Duration(milliseconds: 700));
@@ -406,7 +415,7 @@ class GameController extends ChangeNotifier {
         _lastPlayerIndex = (_lastPlayerIndex + 1) % available.length;
       }
       currentPlayer = available[_lastPlayerIndex];
-      turn++;
+      if (completed || turn == 0) turn++;
       notifyListeners();
     } finally {
       adBreakVisible = false;
@@ -414,7 +423,8 @@ class GameController extends ChangeNotifier {
     }
   }
 
-  Future<void> skipPlayer() => nextTurn();
+  Future<void> skipPlayer() => nextTurn(completed: false);
+
   void togglePause() {
     paused = !paused;
     notifyListeners();
@@ -431,7 +441,10 @@ class GameController extends ChangeNotifier {
       AppAudio.enabled = value;
       if (value) AppAudio.play(AppSound.confirm);
     }
-    if (key == 'haptics') hapticsEnabled = value;
+    if (key == 'haptics') {
+      hapticsEnabled = value;
+      AppAudio.hapticsEnabled = value;
+    }
     if (key == 'animations') animationsEnabled = value;
     _save();
     notifyListeners();
@@ -455,7 +468,12 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void finishGame() => _setPage(AppPage.summary);
+  void finishGame() {
+    paused = false;
+    adBreakVisible = false;
+    _setPage(AppPage.summary);
+  }
+
   void playAgain() => startGame();
   void goHome() => _setPage(AppPage.welcome);
 
